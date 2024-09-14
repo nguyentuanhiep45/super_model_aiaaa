@@ -115,7 +115,12 @@ class Diffusion_Video_Model(nn.Module):
             Diffusion_Unit(320, 320),
             Diffusion_Unit(320, 320),
             nn.Conv2d(320, 320, 3, 2, 1),
-            Diffusion_Unit(320, 640)
+            Diffusion_Unit(320, 640),
+            Diffusion_Unit(640, 640),
+            nn.Conv2d(640, 640, 3, 2, 1),
+            Diffusion_Unit(640, 1280),
+            Diffusion_Unit(1280, 1280),
+            nn.Conv2d(1280, 1280, 3, 2, 1)
         ])
 
     def prompt_attention(self, token_embedding):
@@ -155,10 +160,18 @@ class Diffusion_Video_Model(nn.Module):
         S.append(latent_)
         latent_, time_encoding = self.forward_diffusion_layer[6](latent_, time_encoding)
         S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[7](latent_, time_encoding)
+        S.append(latent_)
+        latent_ = self.forward_diffusion_layer[8](latent_)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[9](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[10](latent_, time_encoding)
+        S.append(latent_)
+        latent_ = self.forward_diffusion_layer[11](latent_)
+        S.append(latent_)
 
         print(latent_.shape)
-        print(time_encoding.shape)
-        exit()
         exit()
         
 
