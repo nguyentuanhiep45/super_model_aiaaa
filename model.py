@@ -165,7 +165,19 @@ class Diffusion_Video_Model(nn.Module):
             nn.Upsample(scale_factor = 2),
             nn.Conv2d(1280, 1280, 3, padding = 1),
             Diffusion_Sub_Unit(1920, 640),
-            Diffusion_Sub_Unit_2(640)
+            Diffusion_Sub_Unit_2(640),
+            Diffusion_Sub_Unit(1280, 640),
+            Diffusion_Sub_Unit_2(640),
+            Diffusion_Sub_Unit(960, 640),
+            Diffusion_Sub_Unit_2(640),
+            nn.Upsample(scale_factor = 2),
+            nn.Conv2d(640, 640, 3, padding = 1),
+            Diffusion_Sub_Unit(960, 320),
+            Diffusion_Sub_Unit_2(320),
+            Diffusion_Sub_Unit(640, 320),
+            Diffusion_Sub_Unit_2(320),
+            Diffusion_Sub_Unit(640, 320),
+            Diffusion_Sub_Unit_2(320)
         ])
 
     def prompt_attention(self, token_embedding):
@@ -236,11 +248,33 @@ class Diffusion_Video_Model(nn.Module):
         latent, time_encoding = self.forward_diffusion_layer[29](latent, time_encoding)
         latent, time_encoding = self.forward_diffusion_layer[30](latent, time_encoding)
 
+        # xong buoc 22
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[31](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[32](latent, time_encoding)
+        # xong buoc 23
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[33](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[34](latent, time_encoding)
+
+        latent = self.forward_diffusion_layer[35](latent)
+        latent = self.forward_diffusion_layer[36](latent)
+        # xong buoc 24
+
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[37](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[38](latent, time_encoding)
+
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[39](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[40](latent, time_encoding)
+
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[41](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[42](latent, time_encoding)
+
         print(latent.shape)
-        print(S.pop().shape)
-        print(S.pop().shape)
-        print(S.pop().shape)
-        print(S.pop().shape)
+        print(S)
         exit()
         
 
