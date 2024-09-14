@@ -125,16 +125,6 @@ class Diffusion_Video_Model(nn.Module):
 
         residue_short = latent_
         latent_ = self.forward_diffusion_layer[12](latent_)
-        print(latent_.shape)
-
-
-
-
-
-
-
-
-
 
     def infer(self, batch_input_text):
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
