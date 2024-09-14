@@ -55,31 +55,31 @@ class Diffusion_Unit(nn.Module):
 
     def forward(self, latent, time_encoding):
         residue = latent
-        latent = self.forward_diffusion_layer[0](latent)
+        latent = self.diffusion_unit_layer[0](latent)
         latent = func.silu(latent)
-        latent = self.forward_diffusion_layer[1](latent)
+        latent = self.diffusion_unit_layer[1](latent)
 
         time_encoding = func.silu(time_encoding)
-        latent = latent + self.forward_diffusion_layer[2](time_encoding).reshape(1, 320, 1, 1)
-        latent = self.forward_diffusion_layer[3](latent)
+        latent = latent + self.diffusion_unit_layer[2](time_encoding).reshape(1, 320, 1, 1)
+        latent = self.diffusion_unit_layer[3](latent)
         latent = func.silu(latent)
-        latent = self.forward_diffusion_layer[4](latent) + residue
+        latent = self.diffusion_unit_layer[4](latent) + residue
 
         residue_long = latent
-        latent = self.forward_diffusion_layer[5](latent)
-        latent = self.forward_diffusion_layer[6](latent)
+        latent = self.diffusion_unit_layer[5](latent)
+        latent = self.diffusion_unit_layer[6](latent)
         latent = latent.reshape(-1, 64 * 96, 320)
         residue_short = latent
-        latent = self.forward_diffusion_layer[7](latent)
-        latent = self.forward_diffusion_layer[8](latent, latent, latent)[0] + residue_short
+        latent = self.diffusion_unit_layer[7](latent)
+        latent = self.diffusion_unit_layer[8](latent, latent, latent)[0] + residue_short
 
         residue_short = latent
-        latent = self.forward_diffusion_layer[9](latent)
-        latent, gate = self.forward_diffusion_layer[10](latent).chunk(2, -1)
+        latent = self.diffusion_unit_layer[9](latent)
+        latent, gate = self.diffusion_unit_layer[10](latent).chunk(2, -1)
         latent = latent * func.gelu(gate)
-        latent = self.forward_diffusion_layer[11](latent) + residue_short
+        latent = self.diffusion_unit_layer[11](latent) + residue_short
         latent = latent.reshape(-1, 320, 64, 96)
-        latent = self.forward_diffusion_layer[12](latent) + residue_long
+        latent = self.diffusion_unit_layer[12](latent) + residue_long
 
         return (latent, time_encoding)
 
