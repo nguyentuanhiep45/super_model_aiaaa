@@ -156,7 +156,7 @@ class Diffusion_Video_Model(nn.Module):
             time_embedding = time_encoder(320, time_step).reshape(1, 320)
             post_latent = self.latent_processing(latent, context_tensor, time_embedding)
 
-        return time_vector
+        return post_latent
 
 
 
