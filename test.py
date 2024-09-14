@@ -16,9 +16,18 @@ import torch
 #     "I love you"
 # ], (64, 96))
 
-i = 5
+# i = 5
 
-for j in range(2, 9):
-    a, i = tuple((i * 2, i * 3))
+# for j in range(2, 9):
+#     a, i = tuple((i * 2, i * 3))
+class foo:
+    def __init__(self):
+        pass
 
-print(i)
+class bar(foo):
+    def __init__(self):
+        pass
+
+a = bar()
+
+print(type(a) == bar)
