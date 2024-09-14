@@ -9,6 +9,10 @@ torch.set_printoptions(
     threshold = 100
 )
 
+model = Diffusion_Video_Model()
+if torch.cuda.is_available():
+    model.cuda()
+
 for i in range(1000000):
     if exist_video():
         delete_video()

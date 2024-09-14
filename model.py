@@ -37,8 +37,9 @@ def time_encoder(size, time_step):
 class Diffusion_Video_Model(nn.Module):
     def __init__(self):
         super().__init__()
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.embedding = nn.Embedding(50000, 768)
-        self.positional_encoding = positional_encoder((1000, 768))
+        self.positional_encoding = positional_encoder((1000, 768)).to(self.device)
 
         self.text_processing_layer = nn.ModuleList([
             nn.LayerNorm(768),
@@ -76,8 +77,8 @@ class Diffusion_Video_Model(nn.Module):
     
     def prompt_attention(self, token_embedding):
         x = token_embedding
-        mask = torch.full((1000, 1000), float('-inf'))
-        mask.masked_fill_(torch.ones(1000, 1000).tril(0).bool(), 0)
+        mask = torch.full((1000, 1000), float('-inf'), device = self.device)
+        mask.masked_fill_(torch.ones(1000, 1000, device = self.device).tril(0).bool(), 0)
         
         # Mark : chinh lai thanh 12
         for _ in range(1):
@@ -145,15 +146,15 @@ class Diffusion_Video_Model(nn.Module):
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
         batch_token_sentence = torch.tensor(BPE_tokenizer.batch_encode_plus(
             batch_input_text, padding = "max_length", max_length = 1000
-        ).input_ids)
+        ).input_ids, device = self.device)
 
         token_embedding = self.embedding(batch_token_sentence) + self.positional_encoding
         context_tensor = self.prompt_attention(token_embedding)
 
-        latent = torch.randn(len(batch_input_text), 16, 64, 96)
+        latent = torch.randn(len(batch_input_text), 16, 64, 96, device = self.device)
 
         for time_step in range(980, -20, -20):
-            time_embedding = time_encoder(320, time_step).reshape(1, 320)
+            time_embedding = time_encoder(320, time_step).reshape(1, 320).to(self.device)
             post_latent = self.latent_processing(latent, context_tensor, time_embedding)
 
         return post_latent

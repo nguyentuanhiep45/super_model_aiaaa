@@ -8,6 +8,8 @@ torch.set_printoptions(
 )
 
 model = Diffusion_Video_Model()
+if torch.cuda.is_available():
+    model.cuda()
 
 model.infer([
     "I eat shit",
