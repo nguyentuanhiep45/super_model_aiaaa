@@ -1,0 +1,11 @@
+!pip install https://github.com/yt-dlp/yt-dlp/archive/master.tar.gz
+!pip install youtube-search-python
+
+!git config --global init.defaultBranch main
+!git init
+!git remote add origin https://github.com/nguyenduc13475/super_model_ai.git
+!git fetch origin
+!git merge origin/main
+
+!git fetch origin
+!git merge origin/main

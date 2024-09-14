@@ -171,9 +171,9 @@ class Diffusion_Video_Model(nn.Module):
         S = []
         for i in range(2, 14):
             if type(self.forward_diffusion_layer[i]) == nn.Conv2d:
-                latent_ = self.forward_diffusion_layer[2](latent)
+                latent_ = self.forward_diffusion_layer[i](latent)
             else:
-                latent_, time_encoding = self.forward_diffusion_layer[3](latent_, time_encoding)
+                latent_, time_encoding = self.forward_diffusion_layer[i](latent_, time_encoding)
             S.append(latent_)
 
         print(latent_.shape)
