@@ -134,6 +134,7 @@ class Diffusion_Video_Model(nn.Module):
         S.append(latent_)
 
         print(latent_.shape)
+        print(latent_.shape)
         exit()
 
     def infer(self, batch_input_text):
