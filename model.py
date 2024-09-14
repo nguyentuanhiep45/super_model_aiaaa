@@ -65,7 +65,7 @@ class Diffusion_Video_Model(nn.Module):
             nn.GroupNorm(32, 320),
             nn.Conv2d(320, 320, 1),
             nn.LayerNorm(320),
-            nn.MultiheadAttention(320, 12, batch_first = True),
+            nn.MultiheadAttention(320, 8, batch_first = True),
             nn.LayerNorm(320),
             nn.Linear(320, 320 * 8),
             nn.Linear(4 * 320, 320),
