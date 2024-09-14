@@ -157,7 +157,13 @@ class Diffusion_Video_Model(nn.Module):
             nn.Upsample(scale_factor = 2),
             nn.Conv2d(1280, 1280, 3, padding = 1),
             Diffusion_Sub_Unit(2560, 1280),
-            Diffusion_Sub_Unit_2(1280)
+            Diffusion_Sub_Unit_2(1280),
+            Diffusion_Sub_Unit(2560, 1280),
+            Diffusion_Sub_Unit_2(1280),
+            Diffusion_Sub_Unit(1920, 1280),
+            Diffusion_Sub_Unit_2(1280),
+            nn.Upsample(scale_factor = 2),
+            nn.Conv2d(1280, 1280, 3, padding = 1)
         ])
 
     def prompt_attention(self, token_embedding):
@@ -210,6 +216,20 @@ class Diffusion_Video_Model(nn.Module):
         latent = torch.cat((latent, S.pop()), 1)
         latent, time_encoding = self.forward_diffusion_layer[21](latent, time_encoding)
         latent, time_encoding = self.forward_diffusion_layer[22](latent, time_encoding)
+
+        # xong buoc 19
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[23](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[24](latent, time_encoding)
+
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[25](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[26](latent, time_encoding)
+
+        latent = self.forward_diffusion_layer[27](latent)
+        latent = self.forward_diffusion_layer[28](latent)
+
+        # xong buoc 21
 
         print(latent.shape)
         print(time_encoding.shape)
