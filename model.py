@@ -68,7 +68,8 @@ class Diffusion_Unit(nn.Module):
         residue_long = latent
         latent = self.diffusion_unit_layer[5](latent)
         latent = self.diffusion_unit_layer[6](latent)
-        latent = latent.reshape(-1, 64 * 96, 320)
+        h, w = latent.shape[-2:]
+        latent = latent.reshape(-1, h * w, 320)
         residue_short = latent
         latent = self.diffusion_unit_layer[7](latent)
         latent = self.diffusion_unit_layer[8](latent, latent, latent)[0] + residue_short
@@ -78,7 +79,7 @@ class Diffusion_Unit(nn.Module):
         latent, gate = self.diffusion_unit_layer[10](latent).chunk(2, -1)
         latent = latent * func.gelu(gate)
         latent = self.diffusion_unit_layer[11](latent) + residue_short
-        latent = latent.reshape(-1, 320, 64, 96)
+        latent = latent.reshape(-1, 320, h, w)
         latent = self.diffusion_unit_layer[12](latent) + residue_long
 
         return (latent, time_encoding)
@@ -108,7 +109,8 @@ class Diffusion_Video_Model(nn.Module):
             nn.Linear(4 * 320, 4 * 320),
             nn.Conv2d(16, 320, 3, padding = 1),
             Diffusion_Unit(),
-            Diffusion_Unit()
+            Diffusion_Unit(),
+            nn.Conv2d(320, 320, 3, 2, 1),
         ])
 
     def prompt_attention(self, token_embedding):
@@ -144,12 +146,14 @@ class Diffusion_Video_Model(nn.Module):
         S.append(latent_)
         latent_, time_encoding = self.forward_diffusion_layer[4](latent_, time_encoding)
         S.append(latent_)
+        latent_ = self.forward_diffusion_layer[5](latent_)
+        S.append(latent_)
 
         print(latent_.shape)
         exit()
         
 
-    def infer(self, batch_input_text):
+    def infer(self, batch_input_text, latent_shape):
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
         batch_token_sentence = torch.tensor(BPE_tokenizer.batch_encode_plus(
             batch_input_text, padding = "max_length", max_length = 1000
@@ -158,7 +162,8 @@ class Diffusion_Video_Model(nn.Module):
         token_embedding = self.embedding(batch_token_sentence) + self.positional_encoding
         context_tensor = self.prompt_attention(token_embedding)
 
-        latent = torch.randn(len(batch_input_text), 16, 64, 96, device = self.device)
+        h, w = latent_shape
+        latent = torch.randn(len(batch_input_text), 16, h, w, device = self.device)
 
         for time_step in range(980, -20, -20):
             time_embedding = time_encoder(320, time_step).reshape(1, 320).to(self.device)
