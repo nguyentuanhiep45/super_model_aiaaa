@@ -163,7 +163,9 @@ class Diffusion_Video_Model(nn.Module):
             Diffusion_Sub_Unit(1920, 1280),
             Diffusion_Sub_Unit_2(1280),
             nn.Upsample(scale_factor = 2),
-            nn.Conv2d(1280, 1280, 3, padding = 1)
+            nn.Conv2d(1280, 1280, 3, padding = 1),
+            Diffusion_Sub_Unit(1920, 640),
+            Diffusion_Sub_Unit_2(640)
         ])
 
     def prompt_attention(self, token_embedding):
@@ -230,8 +232,14 @@ class Diffusion_Video_Model(nn.Module):
         latent = self.forward_diffusion_layer[28](latent)
 
         # xong buoc 21
+        latent = torch.cat((latent, S.pop()), 1)
+        latent, time_encoding = self.forward_diffusion_layer[29](latent, time_encoding)
+        latent, time_encoding = self.forward_diffusion_layer[30](latent, time_encoding)
 
         print(latent.shape)
+        print(S.pop().shape)
+        print(S.pop().shape)
+        print(S.pop().shape)
         print(S.pop().shape)
         exit()
         
