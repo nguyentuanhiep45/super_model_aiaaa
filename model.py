@@ -111,12 +111,10 @@ class Diffusion_Video_Model(nn.Module):
         latent_ = self.forward_diffusion_layer[4](latent_)
 
         time_encoding = func.silu(time_encoding)
-        time_ = self.forward_diffusion_layer[5](time_encoding).reshape(1, 320, 1, 1)
-        latent_ += time_
+        latent_ = latent_ + self.forward_diffusion_layer[5](time_encoding).reshape(1, 320, 1, 1)
         latent_ = self.forward_diffusion_layer[6](latent_)
         latent_ = func.silu(latent_)
-        latent_ = self.forward_diffusion_layer[7](latent_)
-        latent_ += residue
+        latent_ = self.forward_diffusion_layer[7](latent_) + residue
 
         residue_long = latent_
         latent_ = self.forward_diffusion_layer[8](latent_)
@@ -124,19 +122,15 @@ class Diffusion_Video_Model(nn.Module):
         latent_ = latent_.reshape(-1, 64 * 96, 320)
         residue_short = latent_
         latent_ = self.forward_diffusion_layer[10](latent_)
-        latent_, _ = self.forward_diffusion_layer[11](latent_, latent_, latent_)
-        latent_ += residue_short
+        latent_ = self.forward_diffusion_layer[11](latent_, latent_, latent_)[0] + residue_short
 
         residue_short = latent_
         latent_ = self.forward_diffusion_layer[12](latent_)
         latent_, gate = self.forward_diffusion_layer[13](latent_).chunk(2, -1)
-        gate = func.gelu(gate)
-        latent_ *= gate
-        latent_ = self.forward_diffusion_layer[14](latent_)
-        latent_ += residue_short
+        latent_ = latent_ * func.gelu(gate)
+        latent_ = self.forward_diffusion_layer[14](latent_) + residue_short
         latent_ = latent_.reshape(-1, 320, 64, 96)
-        latent_ = self.forward_diffusion_layer[15](latent_)
-        latent_ += residue_long
+        latent_ = self.forward_diffusion_layer[15](latent_) + residue_long
         S.append(latent_)
 
         print(latent_.shape)
