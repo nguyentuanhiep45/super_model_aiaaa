@@ -64,8 +64,11 @@ class Diffusion_Video_Model(nn.Module):
             nn.GroupNorm(32, 320),
             nn.Conv2d(320, 320, 1),
             nn.LayerNorm(320),
-            nn.MultiheadAttention(320, 8, batch_first = True),
+            nn.MultiheadAttention(320, 12, batch_first = True),
             nn.LayerNorm(320),
+            nn.Linear(320, 320 * 8),
+            nn.Linear(4 * 320, 320),
+            nn.Conv2d(320, 320, 1)
         ])
 
     def forward(self, x):
@@ -125,6 +128,18 @@ class Diffusion_Video_Model(nn.Module):
 
         residue_short = latent_
         latent_ = self.forward_diffusion_layer[12](latent_)
+        latent_, gate = self.forward_diffusion_layer[13](latent_).chunk(2, -1)
+        gate = func.gelu(gate)
+        latent_ *= gate
+        latent_ = self.forward_diffusion_layer[14](latent_)
+        latent_ += residue_short
+        latent_ = latent_.reshape(-1, 320, 64, 96)
+        latent_ = self.forward_diffusion_layer[15](latent_)
+        latent_ += residue_long
+        S.append(latent_)
+
+        print(latent_.shape)
+        exit()
 
     def infer(self, batch_input_text):
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
