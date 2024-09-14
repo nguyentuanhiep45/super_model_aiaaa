@@ -35,22 +35,26 @@ def time_encoder(size, time_step):
     return torch.cat((torch.sin(temp), torch.cos(temp)), 0)
 
 class Diffusion_Unit(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channels, out_channels):
         super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+
         self.diffusion_unit_layer = nn.ModuleList([
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 3, padding = 1),
-            nn.Linear(4 * 320, 320),
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 3, padding = 1),
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 1),
-            nn.LayerNorm(320),
-            nn.MultiheadAttention(320, 8, batch_first = True),
-            nn.LayerNorm(320),
-            nn.Linear(320, 320 * 8),
-            nn.Linear(4 * 320, 320),
-            nn.Conv2d(320, 320, 1)
+            nn.GroupNorm(32, in_channels),
+            nn.Conv2d(in_channels, out_channels, 3, padding = 1),
+            nn.Linear(4 * 320, out_channels),
+            nn.GroupNorm(32, out_channels),
+            nn.Conv2d(out_channels, out_channels, 3, padding = 1),
+            nn.GroupNorm(32, out_channels),
+            nn.Conv2d(out_channels, out_channels, 1),
+            nn.LayerNorm(out_channels),
+            nn.MultiheadAttention(out_channels, 8, batch_first = True),
+            nn.LayerNorm(out_channels),
+            nn.Linear(out_channels, out_channels * 8),
+            nn.Linear(4 * out_channels, out_channels),
+            nn.Conv2d(out_channels, out_channels, 1),
+            nn.Identity() if in_channels == out_channels else nn.Conv2d(in_channels, out_channels, 1)
         ])
 
     def forward(self, latent, time_encoding):
@@ -60,16 +64,16 @@ class Diffusion_Unit(nn.Module):
         latent = self.diffusion_unit_layer[1](latent)
 
         time_encoding = func.silu(time_encoding)
-        latent = latent + self.diffusion_unit_layer[2](time_encoding).reshape(1, 320, 1, 1)
+        latent = latent + self.diffusion_unit_layer[2](time_encoding).reshape(1, self.out_channels, 1, 1)
         latent = self.diffusion_unit_layer[3](latent)
         latent = func.silu(latent)
-        latent = self.diffusion_unit_layer[4](latent) + residue
+        latent = self.diffusion_unit_layer[4](latent) + self.diffusion_unit_layer[13](residue)
 
         residue_long = latent
         latent = self.diffusion_unit_layer[5](latent)
         latent = self.diffusion_unit_layer[6](latent)
         h, w = latent.shape[-2:]
-        latent = latent.reshape(-1, h * w, 320)
+        latent = latent.reshape(-1, h * w, self.out_channels)
         residue_short = latent
         latent = self.diffusion_unit_layer[7](latent)
         latent = self.diffusion_unit_layer[8](latent, latent, latent)[0] + residue_short
@@ -79,7 +83,7 @@ class Diffusion_Unit(nn.Module):
         latent, gate = self.diffusion_unit_layer[10](latent).chunk(2, -1)
         latent = latent * func.gelu(gate)
         latent = self.diffusion_unit_layer[11](latent) + residue_short
-        latent = latent.reshape(-1, 320, h, w)
+        latent = latent.reshape(-1, self.out_channels, h, w)
         latent = self.diffusion_unit_layer[12](latent) + residue_long
 
         return (latent, time_encoding)
@@ -108,9 +112,10 @@ class Diffusion_Video_Model(nn.Module):
             nn.Linear(320, 4 * 320),
             nn.Linear(4 * 320, 4 * 320),
             nn.Conv2d(16, 320, 3, padding = 1),
-            Diffusion_Unit(),
-            Diffusion_Unit(),
+            Diffusion_Unit(320, 320),
+            Diffusion_Unit(320, 320),
             nn.Conv2d(320, 320, 3, 2, 1),
+            Diffusion_Unit(320, 640)
         ])
 
     def prompt_attention(self, token_embedding):
@@ -148,8 +153,11 @@ class Diffusion_Video_Model(nn.Module):
         S.append(latent_)
         latent_ = self.forward_diffusion_layer[5](latent_)
         S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[6](latent_, time_encoding)
+        S.append(latent_)
 
         print(latent_.shape)
+        print(time_encoding.shape)
         exit()
         
 
