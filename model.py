@@ -232,7 +232,7 @@ class Diffusion_Video_Model(nn.Module):
         # xong buoc 21
 
         print(latent.shape)
-        print(time_encoding.shape)
+        print(S.pop().shape)
         exit()
         
 
