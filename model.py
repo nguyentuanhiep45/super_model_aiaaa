@@ -159,6 +159,7 @@ class Diffusion_Video_Model(nn.Module):
         print(latent_.shape)
         print(time_encoding.shape)
         exit()
+        exit()
         
 
     def infer(self, batch_input_text, latent_shape):
