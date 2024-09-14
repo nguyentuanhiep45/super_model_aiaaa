@@ -169,14 +169,30 @@ class Diffusion_Video_Model(nn.Module):
         time_encoding = self.forward_diffusion_layer[1](time_encoding)
 
         S = []
-
-        for i in range(2, 14):
-            if isinstance(self.forward_diffusion_layer[i], nn.Conv2d):
-                latent_ = self.forward_diffusion_layer[i](latent)
-            else:
-                latent_, time_encoding = self.forward_diffusion_layer[i](latent, time_encoding)
-            S.append(latent_)
-
+        latent_ = self.forward_diffusion_layer[2](latent)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[3](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[4](latent_, time_encoding)
+        S.append(latent_)
+        latent_ = self.forward_diffusion_layer[5](latent_)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[6](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[7](latent_, time_encoding)
+        S.append(latent_)
+        latent_ = self.forward_diffusion_layer[8](latent_)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[9](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[10](latent_, time_encoding)
+        S.append(latent_)
+        latent_ = self.forward_diffusion_layer[11](latent_)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[12](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[13](latent_, time_encoding)
+        S.append(latent_)
 
         print(latent_.shape)
         print(time_encoding.shape)
