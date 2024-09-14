@@ -247,7 +247,9 @@ class Diffusion_Video_Model(nn.Module):
         latent = torch.cat((latent, S.pop()), 1)
         latent, time_encoding = self.forward_diffusion_layer[29](latent, time_encoding)
         latent, time_encoding = self.forward_diffusion_layer[30](latent, time_encoding)
-
+        print(latent.shape)
+        print(1)
+        print(S)
         # xong buoc 22
         latent = torch.cat((latent, S.pop()), 1)
         latent, time_encoding = self.forward_diffusion_layer[31](latent, time_encoding)
