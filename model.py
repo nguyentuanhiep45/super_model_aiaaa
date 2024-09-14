@@ -34,6 +34,56 @@ def time_encoder(size, time_step):
     temp = m ** -torch.arange(0, size // 2) * time_step
     return torch.cat((torch.sin(temp), torch.cos(temp)), 0)
 
+class Diffusion_Unit(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.diffusion_unit_layer = nn.ModuleList([
+            nn.GroupNorm(32, 320),
+            nn.Conv2d(320, 320, 3, padding = 1),
+            nn.Linear(4 * 320, 320),
+            nn.GroupNorm(32, 320),
+            nn.Conv2d(320, 320, 3, padding = 1),
+            nn.GroupNorm(32, 320),
+            nn.Conv2d(320, 320, 1),
+            nn.LayerNorm(320),
+            nn.MultiheadAttention(320, 8, batch_first = True),
+            nn.LayerNorm(320),
+            nn.Linear(320, 320 * 8),
+            nn.Linear(4 * 320, 320),
+            nn.Conv2d(320, 320, 1)
+        ])
+
+    def forward(self, latent, time_encoding):
+        residue = latent
+        latent = self.forward_diffusion_layer[0](latent)
+        latent = func.silu(latent)
+        latent = self.forward_diffusion_layer[1](latent)
+
+        time_encoding = func.silu(time_encoding)
+        latent = latent + self.forward_diffusion_layer[2](time_encoding).reshape(1, 320, 1, 1)
+        latent = self.forward_diffusion_layer[3](latent)
+        latent = func.silu(latent)
+        latent = self.forward_diffusion_layer[4](latent) + residue
+
+        residue_long = latent
+        latent = self.forward_diffusion_layer[5](latent)
+        latent = self.forward_diffusion_layer[6](latent)
+        latent = latent.reshape(-1, 64 * 96, 320)
+        residue_short = latent
+        latent = self.forward_diffusion_layer[7](latent)
+        latent = self.forward_diffusion_layer[8](latent, latent, latent)[0] + residue_short
+
+        residue_short = latent
+        latent = self.forward_diffusion_layer[9](latent)
+        latent, gate = self.forward_diffusion_layer[10](latent).chunk(2, -1)
+        latent = latent * func.gelu(gate)
+        latent = self.forward_diffusion_layer[11](latent) + residue_short
+        latent = latent.reshape(-1, 320, 64, 96)
+        latent = self.forward_diffusion_layer[12](latent) + residue_long
+
+        return (latent, time_encoding)
+
+
 class Diffusion_Video_Model(nn.Module):
     def __init__(self):
         super().__init__()
@@ -57,24 +107,10 @@ class Diffusion_Video_Model(nn.Module):
             nn.Linear(320, 4 * 320),
             nn.Linear(4 * 320, 4 * 320),
             nn.Conv2d(16, 320, 3, padding = 1),
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 3, padding = 1),
-            nn.Linear(4 * 320, 320),
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 3, padding = 1),
-            nn.GroupNorm(32, 320),
-            nn.Conv2d(320, 320, 1),
-            nn.LayerNorm(320),
-            nn.MultiheadAttention(320, 8, batch_first = True),
-            nn.LayerNorm(320),
-            nn.Linear(320, 320 * 8),
-            nn.Linear(4 * 320, 320),
-            nn.Conv2d(320, 320, 1)
+            Diffusion_Unit(),
+            Diffusion_Unit()
         ])
 
-    def forward(self, x):
-        return x
-    
     def prompt_attention(self, token_embedding):
         x = token_embedding
         mask = torch.full((1000, 1000), float('-inf'), device = self.device)
@@ -95,7 +131,7 @@ class Diffusion_Video_Model(nn.Module):
             x += residue
 
         return self.text_processing_layer[5](x)
-    
+
     def latent_processing(self, latent, context_tensor, time_embedding):
         time_encoding = self.forward_diffusion_layer[0](time_embedding)
         time_encoding = func.silu(time_encoding)
@@ -104,38 +140,14 @@ class Diffusion_Video_Model(nn.Module):
         S = []
         latent_ = self.forward_diffusion_layer[2](latent)
         S.append(latent_)
-
-        residue = latent_
-        latent_ = self.forward_diffusion_layer[3](latent_)
-        latent_ = func.silu(latent_)
-        latent_ = self.forward_diffusion_layer[4](latent_)
-
-        time_encoding = func.silu(time_encoding)
-        latent_ = latent_ + self.forward_diffusion_layer[5](time_encoding).reshape(1, 320, 1, 1)
-        latent_ = self.forward_diffusion_layer[6](latent_)
-        latent_ = func.silu(latent_)
-        latent_ = self.forward_diffusion_layer[7](latent_) + residue
-
-        residue_long = latent_
-        latent_ = self.forward_diffusion_layer[8](latent_)
-        latent_ = self.forward_diffusion_layer[9](latent_)
-        latent_ = latent_.reshape(-1, 64 * 96, 320)
-        residue_short = latent_
-        latent_ = self.forward_diffusion_layer[10](latent_)
-        latent_ = self.forward_diffusion_layer[11](latent_, latent_, latent_)[0] + residue_short
-
-        residue_short = latent_
-        latent_ = self.forward_diffusion_layer[12](latent_)
-        latent_, gate = self.forward_diffusion_layer[13](latent_).chunk(2, -1)
-        latent_ = latent_ * func.gelu(gate)
-        latent_ = self.forward_diffusion_layer[14](latent_) + residue_short
-        latent_ = latent_.reshape(-1, 320, 64, 96)
-        latent_ = self.forward_diffusion_layer[15](latent_) + residue_long
+        latent_, time_encoding = self.forward_diffusion_layer[3](latent_, time_encoding)
+        S.append(latent_)
+        latent_, time_encoding = self.forward_diffusion_layer[4](latent_, time_encoding)
         S.append(latent_)
 
         print(latent_.shape)
-        print(latent_.shape)
         exit()
+        
 
     def infer(self, batch_input_text):
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
