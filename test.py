@@ -11,9 +11,7 @@ model = Diffusion_Video_Model()
 if torch.cuda.is_available():
     model.cuda()
 
-video = model.infer([
+video, debug_information = model.infer([
     "I eat shit",
     "I love you"
 ], (64, 96), 2)
-
-show_image(video[0][0])
