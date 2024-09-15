@@ -1,5 +1,5 @@
 import torch
-from model import Diffusion_Video_Model
+from model import Diffusion_Video_Model, show_image
 
 torch.set_printoptions(
     precision = 16,
@@ -11,7 +11,9 @@ model = Diffusion_Video_Model()
 if torch.cuda.is_available():
     model.cuda()
 
-model.infer([
+video = model.infer([
     "I eat shit",
     "I love you"
-], (64, 96))
+], (64, 96), 2)
+
+show_image(video[0][0])
