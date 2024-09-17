@@ -527,15 +527,17 @@ class Diffusion_Video_Model(nn.Module):
         loss_2 = self.criterion(predicted_noise, added_noise)
 
         loss = loss_1 + loss_2
-        print(loss)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+
+        return loss.item()
 
     def train(self, time_step):
         _, _, frames = configuration_at_time_step(time_step)
         batch_video = []
         batch_prompt = []
+        losses = []
 
         for f in os.listdir("."):
             if f.startswith("video"):
@@ -552,7 +554,9 @@ class Diffusion_Video_Model(nn.Module):
         batch_video = torch.stack(batch_video).to(self.device)
 
         for _ in range(100):
-            self.one_step_train(batch_video, batch_prompt)
+            losses.append(self.one_step_train(batch_video, batch_prompt))
+
+        return sum(losses) / len(losses)
 
     def save(self):
         torch.save({
@@ -560,7 +564,11 @@ class Diffusion_Video_Model(nn.Module):
             "optimizer": self.optimizer.state_dict()
         }, "model.ckpt")
 
+        print("Model has been saved successfully.")
+
     def load(self):
         model = torch.load("model.ckpt")
         self.load_state_dict(model["params"])
         self.optimizer.load_state_dict(model["optimizer"])
+
+        print("Model has been loaded successfully.")
