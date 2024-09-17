@@ -1,7 +1,7 @@
 import time
 import torch
 from video import exist_video, delete_video, download_video
-from model import exist_model_in_drive, Diffusion_Video_Model
+from model import exist_model, Diffusion_Video_Model
 
 torch.set_printoptions(
     precision = 4,
@@ -10,22 +10,16 @@ torch.set_printoptions(
 )
 
 model = Diffusion_Video_Model()
+if exist_model():
+    model.load()
+
 if torch.cuda.is_available():
     model.cuda()
 
-for i in range(1000000):
+for time_step in range(1000000):
     if exist_video():
         delete_video()
-    download_video()
-    time.sleep(10)
-    if exist_model_in_drive():
-        model.load()
-    else:
-        create_model_in_drive(model)
+    download_video(time_step)
 
-    model.train()
-    model.add_gradient_to_model_in_drive()
-
-
-    
-    
+    model.train(time_step)
+    model.save()

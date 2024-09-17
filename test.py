@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import re
 from model import Diffusion_Video_Model, show_image
 
 torch.set_printoptions(

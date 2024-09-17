@@ -1,5 +1,3 @@
-from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
 import torch
 from torch import nn
 from torch import optim
@@ -7,23 +5,14 @@ from torch.nn import functional as func
 import transformers
 import matplotlib.pyplot as plt
 import random
+import os
+import cv2 as cv
+from video import configuration_at_time_step
+import numpy as np
+import re
 
-def exist_model_in_drive():
-    auth = GoogleAuth()
-    drive = GoogleDrive(auth)
-
-    auth.LoadCredentialsFile("drive_token.json")
-    if auth.access_token_expired:
-        auth.Refresh()
-
-    drive_files = drive.ListFile({
-        "q": "'1r_oDc5Wm7rYqAPvcdRWsHKzjphgu__C3' in parents and trashed=false"
-    }).GetList()
-
-    for file in drive_files:
-        if file["title"] == "model.ckpt": return True
-    
-    return False
+def exist_model():
+    return os.path.isfile("model.ckpt")
 
 # shape (số dòng, số cột) trả về => chu kỳ để dòng lặp lại = cycle dòng
 def positional_encoder(shape, cycle):
@@ -361,6 +350,9 @@ class Diffusion_Video_Model(nn.Module):
 
         self.encode_layer = VAE()
 
+        self.optimizer = optim.Adam(self.parameters(), lr = 1e-4)
+        self.criterion = nn.MSELoss()
+
     def decode(self, latent):
         for i in range(3):
             latent = self.decode_layer[i](latent)
@@ -487,9 +479,6 @@ class Diffusion_Video_Model(nn.Module):
     
     # batch video (B, 64 frame, 3, 512, 768), giá trị 0 255 đã bị map thành -1, 1
     def one_step_train(self, batch_video, batch_prompt):
-        optimizer = optim.Adam(self.parameters(), lr = 1e-4)
-        criterion = nn.MSELoss()
-        
         batch_size, frames, _, height, width = batch_video.shape
         h = height // 8
         w = width // 8
@@ -498,7 +487,7 @@ class Diffusion_Video_Model(nn.Module):
         memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
         # shape (B * 64, 3, 512, 768)
         original_frame = self.decode(memory_latent)
-        loss_1 = criterion(original_frame, batch_video.reshape(-1, 3, height, width))
+        loss_1 = self.criterion(original_frame, batch_video.reshape(-1, 3, height, width))
 
         random_frame = random.randint(0, frames - 1)
         random_time = random.randint(0, 999)
@@ -535,11 +524,43 @@ class Diffusion_Video_Model(nn.Module):
         previous_latent = self.latent_tokenize(previous_latent.reshape(-1, 16, h, w)).reshape(batch_size, -1, 64)
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
-        loss_2 = criterion(predicted_noise, added_noise)
+        loss_2 = self.criterion(predicted_noise, added_noise)
 
         loss = loss_1 + loss_2
+        print(loss)
         loss.backward()
-        optimizer.step()
-        optimizer.zero_grad()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
-    
+    def train(self, time_step):
+        _, _, frames = configuration_at_time_step(time_step)
+        batch_video = []
+        batch_prompt = []
+
+        for f in os.listdir("."):
+            if f.startswith("video"):
+                curent_video = []
+                video_generator = cv.VideoCapture(f)
+                for _ in range(frames):
+                    curent_video.append(torch.from_numpy(video_generator.read()).permute(2, 0, 1))
+                video_generator.release()
+                # (64, 3, 512, 768)
+                batch_video.append(torch.stack(curent_video))
+                with open("description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
+                    batch_prompt.append(df.read())
+        # (B, 64, 3, 512, 768)
+        batch_video = torch.stack(batch_video).to(self.device)
+
+        for _ in range(100):
+            self.one_step_train(batch_video, batch_prompt)
+
+    def save(self):
+        torch.save({
+            "params" : self.state_dict(),
+            "optimizer": self.optimizer.state_dict()
+        }, "model.ckpt")
+
+    def load(self):
+        model = torch.load("model.ckpt")
+        self.load_state_dict(model["params"])
+        self.optimizer.load_state_dict(model["optimizer"])

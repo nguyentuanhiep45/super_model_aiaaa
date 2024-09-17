@@ -1,5 +1,5 @@
 import torch
-from model import Diffusion_Video_Model
+from model import Diffusion_Video_Model, exist_model, show_image
 
 torch.set_printoptions(
     precision = 4,
@@ -9,7 +9,12 @@ torch.set_printoptions(
 
 model = Diffusion_Video_Model()
 
-if exist_model_in_drive():
+if exist_model():
     model.load()
 
-model.test("man eat shit", (1920, 1080))
+batch_video, _ = model.infer([
+    "I eat shit",
+    "I eat cock"
+], (64, 96), 10)
+
+show_image(batch_video[0][0])
