@@ -2,9 +2,11 @@ from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
 import torch
 from torch import nn
+from torch import optim
 from torch.nn import functional as func
 import transformers
 import matplotlib.pyplot as plt
+import random
 
 def exist_model_in_drive():
     auth = GoogleAuth()
@@ -179,6 +181,88 @@ class Token_Processing_Unit(nn.Module):
         x = x * func.sigmoid(1.702 * x)
         return self.token_processing_unit_layer[4](x) + residue
 
+class VAE_Unit(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+
+        self.VAE_unit_layer = nn.ModuleList([
+            nn.GroupNorm(32, in_channels),
+            nn.Conv2d(in_channels, out_channels, 3, padding = 1),
+            nn.GroupNorm(32, out_channels),
+            nn.Conv2d(out_channels, out_channels, 3, padding = 1),
+            nn.Identity() if in_channels == out_channels else nn.Conv2d(in_channels, out_channels, 1)
+        ])
+
+    def forward(self, x):
+        residue = x
+        x = self.VAE_unit_layer[0](x)
+        x = func.silu(x)
+        x = self.VAE_unit_layer[1](x)
+        x = self.VAE_unit_layer[2](x)
+        x = func.silu(x)
+        return self.VAE_unit_layer[3](x) + self.VAE_unit_layer[4](residue)
+        
+class VAE(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        self.VAE_layer = nn.ModuleList([
+            nn.Conv2d(3, 128, 3, padding = 1),
+            VAE_Unit(128, 128),
+            VAE_Unit(128, 128),
+            nn.Conv2d(128, 128, 3, 2),
+            VAE_Unit(128, 256),
+            VAE_Unit(256, 256),
+            nn.Conv2d(256, 256, 3, 2),
+            VAE_Unit(256, 512),
+            VAE_Unit(512, 512),
+            nn.Conv2d(512, 512, 3, 2),
+            VAE_Unit(512, 512),
+            VAE_Unit(512, 512),
+            VAE_Unit(512, 512),
+            nn.GroupNorm(32, 512),
+            nn.MultiheadAttention(512, 1, batch_first = True),
+            VAE_Unit(512, 512),
+            nn.GroupNorm(32, 512),
+            nn.Conv2d(512, 32, 3, padding = 1),
+            nn.Conv2d(32, 32, 1),
+        ])
+
+    def forward(self, x):
+        for i in range(3):
+            x = self.VAE_layer[i](x)
+        x = func.pad(x, [0, 1, 0, 1])
+
+        for i in range(3, 6):
+            x = self.VAE_layer[i](x)
+        x = func.pad(x, [0, 1, 0, 1])
+
+        for i in range(6, 9):
+            x = self.VAE_layer[i](x)
+        x = func.pad(x, [0, 1, 0, 1])
+
+        for i in range(9, 13):
+            x = self.VAE_layer[i](x)
+
+        residue = x
+        x = self.VAE_layer[13](x)
+        h, w = x.shape[-2:]
+        x = x.reshape(-1, h * w, 512)
+        x, _ = self.VAE_layer[14](x, x, x)
+        x = x.reshape(-1, 512, h, w) + residue
+
+        x = self.VAE_layer[15](x)
+        x = self.VAE_layer[16](x)
+        x = func.silu(x)
+        x = self.VAE_layer[17](x)
+        x = self.VAE_layer[18](x)
+
+        mean_tensor, log_variance_tensor = x.chunk(2, 1)
+        std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
+
+        return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
+
 class Diffusion_Video_Model(nn.Module):
     def __init__(self):
         super().__init__()
@@ -275,6 +359,8 @@ class Diffusion_Video_Model(nn.Module):
 
         self.latent_tokenize_layer = nn.Conv1d(1, 64, 4096, 4096)
 
+        self.encode_layer = VAE()
+
     def decode(self, latent):
         for i in range(3):
             latent = self.decode_layer[i](latent)
@@ -311,7 +397,8 @@ class Diffusion_Video_Model(nn.Module):
         return self.memory_latent_processing_layer[12](x)
 
     def latent_processing(self, latent, context, time_embedding, memory_latent):
-        memory_latent = torch.cat(memory_latent, 1)
+        if (type(memory_latent) == list):
+            memory_latent = torch.cat(memory_latent, 1)
         memory_latent = memory_latent + 0.5 * positional_encoder((memory_latent.shape[1], 64), 50000).to(self.device)
 
         time_encoding = self.forward_diffusion_layer[0](time_embedding)
@@ -352,9 +439,11 @@ class Diffusion_Video_Model(nn.Module):
 
         latent = self.forward_diffusion_layer[43](latent)
         latent = func.silu(latent)
-        denoise_latent = self.forward_diffusion_layer[44](latent)
-        return denoise_latent
+        predicted_noise = self.forward_diffusion_layer[44](latent)
+        return predicted_noise
 
+    # latent = (B, 16, 64, 96) => (B, 1, 16 * 64 * 96) => (B, 64, 24) => (B, 24, 64)
+    # previous_latent = (B * 23, 16, 64, 96) => (B * 23, 1, 16 * 64 * 96) => (B * 23, 64, 24) => (B * 23, 24, 64)
     def latent_tokenize(self, latent):
         return self.latent_tokenize_layer(latent.reshape(latent.shape[0], 1, -1)).permute(0, 2, 1)
 
@@ -380,13 +469,13 @@ class Diffusion_Video_Model(nn.Module):
 
                 for t in range(980, 0, -20):
                     time_embedding = time_encoder(320, t).reshape(1, 320).to(self.device)
-                    denoise_latent = self.latent_processing(latent, context, time_embedding, memory_latent)
+                    predicted_noise = self.latent_processing(latent, context, time_embedding, memory_latent)
 
                     At = self.A[t]
                     At_k = self.A[t - 20]
 
                     latent = \
-                        At_k ** 0.5 * (1 - At / At_k) / (1 - At) * denoise_latent + \
+                        At_k ** 0.5 * (1 - At / At_k) / (1 - At) * predicted_noise + \
                         (At / At_k) ** 0.5 * (1 - At_k) / (1 - At) * latent + \
                         ((1 - At_k) / (1 - At) * (1 - At / At_k)) ** 0.5 * torch.randn(latent.shape, device = self.device)
                 
@@ -395,3 +484,62 @@ class Diffusion_Video_Model(nn.Module):
                 debug_information.append(self.decode(latent))
 
         return (video, debug_information)
+    
+    # batch video (B, 64 frame, 3, 512, 768), giá trị 0 255 đã bị map thành -1, 1
+    def one_step_train(self, batch_video, batch_prompt):
+        optimizer = optim.Adam(self.parameters(), lr = 1e-4)
+        criterion = nn.MSELoss()
+        
+        batch_size, frames, _, height, width = batch_video.shape
+        h = height // 8
+        w = width // 8
+
+        # shape (B * 64, 16, 64, 96)
+        memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
+        # shape (B * 64, 3, 512, 768)
+        original_frame = self.decode(memory_latent)
+        loss_1 = criterion(original_frame, batch_video.reshape(-1, 3, height, width))
+
+        random_frame = random.randint(0, frames - 1)
+        random_time = random.randint(0, 999)
+        time_embedding = time_encoder(320, random_time).reshape(1, 320).to(self.device)
+
+
+        # shape (B, 16, 64, 96)
+        chosen_latent = memory_latent.reshape(batch_size, frames, 16, h, w)[:, random_frame]
+
+        # shape (B, 23, 16, 64, 96)
+        previous_latent = torch.cat((
+            torch.zeros(batch_size, 1, 16, h, w, device = self.device), 
+            memory_latent.reshape(batch_size, frames, 16, h, w)[:, :random_frame]
+        ), 1)
+
+        # shape (B, 16, 64, 96)
+        added_noise = torch.randn(chosen_latent.shape, device = self.device)
+        noise_latent = \
+            self.A[random_time] ** 0.5 * chosen_latent + \
+            (1 - self.A[random_time]) ** 0.5 * added_noise
+        
+        BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
+        token_sentences = torch.tensor(BPE_tokenizer.batch_encode_plus(
+            batch_prompt, padding = "max_length", max_length = 1000
+        ).input_ids, device = self.device)
+
+        text_embedding = self.text_embedding_layer(token_sentences) + 0.5 * positional_encoder((1000, 768), 2000).to(self.device)
+        
+        # shape (B, 1000, 768)
+        context = self.text_processing(text_embedding)
+
+
+        # (B * 23, 24, 64)
+        previous_latent = self.latent_tokenize(previous_latent.reshape(-1, 16, h, w)).reshape(batch_size, -1, 64)
+        
+        predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
+        loss_2 = criterion(predicted_noise, added_noise)
+
+        loss = loss_1 + loss_2
+        loss.backward()
+        optimizer.step()
+        optimizer.zero_grad()
+
+    
