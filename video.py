@@ -53,6 +53,7 @@ def download_video(time_step):
                 if is_short_video(v["duration"], duration):
                     is_search_done = True
                     v_id = v["id"]
+                    print(v)
                     v_description = v["title"] + ". " + v["descriptionSnippet"][0]["text"]
                     break
 

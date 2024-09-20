@@ -625,7 +625,7 @@ class Diffusion_Video_Model(nn.Module):
         batch_prompt = []
         losses = []
 
-        for f in os.listdir("."):
+        for f in os.listdir("videos"):
             if f.startswith("video"):
                 curent_video = []
                 video_generator = cv.VideoCapture(f)
@@ -634,7 +634,7 @@ class Diffusion_Video_Model(nn.Module):
                 video_generator.release()
                 # (64, 3, 512, 768)
                 batch_video.append(torch.stack(curent_video))
-                with open("description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
+                with open("videos/description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
                     batch_prompt.append(df.read())
         # (B, 64, 3, 512, 768)
         batch_video = torch.stack(batch_video).to(self.device)
