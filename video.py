@@ -3,13 +3,14 @@ import yt_dlp
 from random_sentence import random_sentence
 from datetime import timedelta
 from youtubesearchpython import VideosSearch
+import re
 
 def exist_video():
     return os.path.isfile("videos/video0.mp4")
 
 def delete_video():
     for f in os.listdir("videos"):
-        os.remove(f)
+        os.remove(os.path.join("videos", f))
             
 
 def is_short_video(duration_str, duration_limit):
@@ -40,22 +41,28 @@ def download_video(time_step):
     batch_size, duration, _ = configuration_at_time_step(time_step)
 
     for i in range(batch_size):
-        ytd = yt_dlp.YoutubeDL({
-            "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "outtmpl": "videos/video" + str(i) + ".mp4"
-        })
+        while True:
+            try:
+                ytd = yt_dlp.YoutubeDL({
+                    "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+                    "outtmpl": "videos/video" + str(i) + ".mp4"
+                })
 
-        is_search_done = False
-        v_id = None
-        v_description = ""
-        while not is_search_done:
-            for v in VideosSearch(random_sentence(), 5).result()["result"]:
-                if is_short_video(v["duration"], duration):
-                    is_search_done = True
-                    v_id = v["id"]
-                    bonus_description = ". " + v["descriptionSnippet"][0]["text"] if v["descriptionSnippet"] != None else ""
-                    v_description = v["title"] + bonus_description
+                is_search_done = False
+                v_id = None
+                v_description = ""
+                while not is_search_done:
+                    for v in VideosSearch(random_sentence(), 5).result()["result"]:
+                        if is_short_video(v["duration"], duration):
+                            is_search_done = True
+                            v_id = v["id"]
+                            bonus_description = ". " + v["descriptionSnippet"][0]["text"] if v["descriptionSnippet"] != None else ""
+                            v_description = v["title"] + bonus_description
 
-        ytd.download(["https://www.youtube.com/watch?v=" + v_id])
-        with open("videos/description" + str(i) + ".txt", "w") as f:
-            f.write(v_description)
+                ytd.download(["https://www.youtube.com/watch?v=" + v_id])
+                with open("videos/description" + str(i) + ".txt", "w") as f:
+                    f.write(v_description)
+            except:
+                for f in os.listdir("videos"):
+                    if f.startswith("video") and re.search(r"video(\d+)\.mp4", f) == None:
+                        os.remove(os.path.join("videos", f))
