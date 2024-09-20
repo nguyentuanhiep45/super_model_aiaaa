@@ -5,12 +5,11 @@ from datetime import timedelta
 from youtubesearchpython import VideosSearch
 
 def exist_video():
-    return os.path.isfile("video0.mp4")
+    return os.path.isfile("videos/video0.mp4")
 
 def delete_video():
-    for f in os.listdir("."):
-        if f.startswith("video") or f.startswith("description"):
-            os.remove(f)
+    for f in os.listdir("videos"):
+        os.remove(f)
             
 
 def is_short_video(duration_str, duration_limit):
@@ -36,12 +35,14 @@ def configuration_at_time_step(time_step):
         return (2, [2 * 60, 6 * 60], 320)
 
 def download_video(time_step):
+    if not os.path.exists("videos"):
+        os.mkdir("videos")
     batch_size, duration, _ = configuration_at_time_step(time_step)
 
     for i in range(batch_size):
         ytd = yt_dlp.YoutubeDL({
             "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
-            "outtmpl": "video" + str(i) + ".mp4"
+            "outtmpl": "videos/video" + str(i) + ".mp4"
         })
 
         is_search_done = False
@@ -56,5 +57,5 @@ def download_video(time_step):
                     break
 
         ytd.download(["https://www.youtube.com/watch?v=" + v_id])
-        with open("description" + str(i) + ".txt", "w") as f:
+        with open("videos/description" + str(i) + ".txt", "w") as f:
             f.write(v_description)
