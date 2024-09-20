@@ -62,6 +62,8 @@ def download_video(time_step):
                 ytd.download(["https://www.youtube.com/watch?v=" + v_id])
                 with open("videos/description" + str(i) + ".txt", "w") as f:
                     f.write(v_description)
+
+                break
             except:
                 for f in os.listdir("videos"):
                     if f.startswith("video") and re.search(r"video(\d+)\.mp4", f) == None:
