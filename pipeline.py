@@ -1,7 +1,6 @@
-import time
 import torch
 from video import exist_video, delete_video, download_video
-from model import exist_model, Diffusion_Video_Model
+from model_low_gpu import exist_model, Diffusion_Video_Model
 
 torch.set_printoptions(
     precision = 4,
