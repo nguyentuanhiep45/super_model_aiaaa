@@ -56,6 +56,7 @@ def download_video(time_step):
                         if is_short_video(v["duration"], duration):
                             is_search_done = True
                             v_id = v["id"]
+                            print(v["descriptionSnippet"])
                             bonus_description = ". " + v["descriptionSnippet"][0]["text"] if v["descriptionSnippet"] != None else ""
                             v_description = v["title"] + bonus_description
 

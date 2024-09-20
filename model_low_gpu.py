@@ -630,7 +630,7 @@ class Diffusion_Video_Model(nn.Module):
                 curent_video = []
                 video_generator = cv.VideoCapture(f)
                 for _ in range(frames):
-                    curent_video.append(torch.from_numpy(cv.resize(video_generator.read(), resolution)).permute(2, 0, 1))
+                    curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
                 video_generator.release()
                 # (64, 3, 512, 768)
                 batch_video.append(torch.stack(curent_video))
