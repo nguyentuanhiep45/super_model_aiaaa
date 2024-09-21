@@ -583,7 +583,7 @@ class Diffusion_Video_Model(nn.Module):
                             break
                     if cc:
                         print(ob.shape)
-                        print("-----------")
+            print("-----------")
 
             if i == 2:
                 for ob in gc.get_objects():
@@ -597,7 +597,7 @@ class Diffusion_Video_Model(nn.Module):
                             break
                     if cc:
                         print(ob.shape)
-                        print("-----------")
+            print("-----------")
 
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
