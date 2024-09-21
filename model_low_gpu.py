@@ -41,13 +41,14 @@ def backward_hook(module, input_grad, out_grad):
     return input_grad
 
 def assign_hook(module):
-    if isinstance(module, nn.ModuleList):
-        for layer in module:
-            layer.register_full_backward_hook(backward_hook)
-            layer.register_forward_hook(forward_hook)
-    else:
-        module.register_full_backward_hook(backward_hook)
-        module.register_forward_hook(forward_hook)
+    if torch.cuda.is_available():
+        if isinstance(module, nn.ModuleList):
+            for layer in module:
+                layer.register_full_backward_hook(backward_hook)
+                layer.register_forward_hook(forward_hook)
+        else:
+            module.register_full_backward_hook(backward_hook)
+            module.register_forward_hook(forward_hook)
 
 class Diffusion_First_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
