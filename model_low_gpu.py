@@ -243,6 +243,8 @@ class VAE(nn.Module):
         for i in range(9, 13):
             x = one_input_forward(self.VAE_layer[i], x)
 
+        print("success 4")
+
         residue = x
         x = one_input_forward(self.VAE_layer[13], x)
         h, w = x.shape[-2:]
@@ -250,14 +252,20 @@ class VAE(nn.Module):
         x, _ = three_input_forward(self.VAE_layer[14], x, x, x)
         x = x.reshape(-1, 512, h, w) + residue
 
+        print("success 5")
+
         x = one_input_forward(self.VAE_layer[15], x)
         x = one_input_forward(self.VAE_layer[16], x)
         x = one_input_forward(func.silu, x)
         x = one_input_forward(self.VAE_layer[17], x)
         x = one_input_forward(self.VAE_layer[18], x)
+        print("success 6")
 
         mean_tensor, log_variance_tensor = x.chunk(2, 1)
         std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
+
+        print("success 7")
+
 
         return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
         
