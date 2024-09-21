@@ -569,15 +569,16 @@ class Diffusion_Video_Model(nn.Module):
             if i == 0:
                 for ob in gc.get_objects():
                     if isinstance(ob, torch.Tensor):
-                        id_list.append(ob)
+                        id_list.append(id(ob))
             if i == 1:
                 for ob in gc.get_objects():
                     if isinstance(ob, torch.Tensor):
-                        id_list2.append(ob)
+                        id_list2.append(id(ob))
                 dem = 0
-                for idx in id_list2 and idx not in id_list:
-                    dem += 1
-                    print(idx)
+                for idx in id_list2:
+                    if idx not in id_list:
+                        dem += 1
+                        print(idx)
                 print(dem)
 
 
