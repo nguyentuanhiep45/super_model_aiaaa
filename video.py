@@ -56,8 +56,12 @@ def download_video(time_step):
                         if is_short_video(v["duration"], duration):
                             is_search_done = True
                             v_id = v["id"]
-                            print(v["descriptionSnippet"])
-                            bonus_description = ". " + v["descriptionSnippet"][0]["text"] if v["descriptionSnippet"] != None else ""
+                            bonus_description = ""
+                            if v["descriptionSnippet"] != None:
+                                bonus_description = ". "
+                                for desc in v["descriptionSnippet"]:
+                                    bonus_description += desc["text"]
+                                    
                             v_description = v["title"] + bonus_description
 
                 ytd.download(["https://www.youtube.com/watch?v=" + v_id])
