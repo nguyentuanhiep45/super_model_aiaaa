@@ -574,8 +574,11 @@ class Diffusion_Video_Model(nn.Module):
                 for ob in gc.get_objects():
                     if isinstance(ob, torch.Tensor):
                         id_list2.append(ob)
+                dem = 0
                 for idx in id_list2 and idx not in id_list:
+                    dem += 1
                     print(idx)
+                print(dem)
 
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
