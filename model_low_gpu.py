@@ -245,7 +245,10 @@ class VAE(nn.Module):
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
 
-        x, _ = three_input_forward(self.VAE_layer[14], x, x, x)
+        x, ggnore = three_input_forward(self.VAE_layer[14], x, x, x)
+        print("debughuanrose")
+        print(x.shape)
+        print(ggnore)
 
         x = x.reshape(-1, 512, h, w) + residue
 
@@ -494,7 +497,6 @@ class Diffusion_Video_Model(nn.Module):
         random_index = random.randint(0, batch_size * frames // 2 - 1)
         random_frame = batch_frames[random_index * 2:random_index * 2 + 2]
         loss = self.criterion(self.decode(self.encode_layer(random_frame)), random_frame)
-        print(loss)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()

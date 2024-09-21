@@ -3,7 +3,10 @@ import sys
 import torch
 from torch import nn
 from torchviz import make_dot
+def foo():
+    return torch.tensor([1, 2, 3])
 
+ggnore, _ = foo()
 # class multiplus(torch.autograd.Function):
 #     def forward(context, input1, input2):
 #         context.save_for_backward(input1, input2)
@@ -40,9 +43,9 @@ from torchviz import make_dot
 # d = c.sum()
 # d.backward()
 
-a = torch.tensor(9., requires_grad=True)
-b = torch.tensor(10., requires_grad=True)
+# a = torch.tensor(9., requires_grad=True)
+# b = torch.tensor(10., requires_grad=True)
 
-c = a * b
-c.backward(torch.tensor(10.))
-print(a.grad)
+# c = a * b
+# c.backward(torch.tensor(10.))
+# print(a.grad)
