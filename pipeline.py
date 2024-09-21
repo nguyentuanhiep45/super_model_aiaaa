@@ -1,12 +1,16 @@
 import torch
 from video import exist_video, delete_video, download_video
 from model_low_gpu import exist_model, Diffusion_Video_Model
+import os
 
 torch.set_printoptions(
     precision = 4,
     sci_mode = False,
     threshold = 100
 )
+
+if not os.path.exists("computational_graph"):
+    os.mkdir("computational_graph")
 
 model = Diffusion_Video_Model()
 if exist_model():

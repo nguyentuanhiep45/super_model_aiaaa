@@ -13,7 +13,6 @@ import re
 import gc
 import time
 import sys
-from function_low_gpu import one_input_forward, three_input_forward
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -35,6 +34,23 @@ def show_image(integer_tensor_image):
     plt.imshow(integer_tensor_image.permute(1, 2, 0))
     plt.axis('off')
     plt.show()
+
+def forward_hook(*args):
+    torch.cuda.empty_cache()
+
+def backward_hook(module, input_grad, out_grad):
+    torch.cuda.empty_cache()
+    return input_grad
+
+def assign_hook(module):
+    if torch.cuda.is_available():
+        if isinstance(module, nn.ModuleList):
+            for layer in module:
+                layer.register_full_backward_hook(backward_hook)
+                layer.register_forward_hook(forward_hook)
+        else:
+            module.register_full_backward_hook(backward_hook)
+            module.register_forward_hook(forward_hook)
 
 class Diffusion_First_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -188,14 +204,12 @@ class VAE_Unit(nn.Module):
 
     def forward(self, x):
         residue = x
-        x = one_input_forward(self.VAE_unit_layer[0], (x))
-        x = one_input_forward(func.silu, x)
-        x = one_input_forward(self.VAE_unit_layer[1], x)
-        x = one_input_forward(self.VAE_unit_layer[2], x)
-        x = one_input_forward(func.silu, x)
-        x = one_input_forward(self.VAE_unit_layer[3], x)
-        residue = one_input_forward(self.VAE_unit_layer[4], residue)
-        return x + residue
+        x = self.VAE_unit_layer[0](x)
+        x = func.silu(x)
+        x = self.VAE_unit_layer[1](x)
+        x = self.VAE_unit_layer[2](x)
+        x = func.silu(x)
+        return self.VAE_unit_layer[3](x) + self.VAE_unit_layer[4](residue)
         
 class VAE(nn.Module):
     def __init__(self):
@@ -225,36 +239,33 @@ class VAE(nn.Module):
         ])
 
     def forward(self, x):
-        print("success 2")
-
         for i in range(3):
-            x = one_input_forward(self.VAE_layer[i], x)
+            x = self.VAE_layer[i](x)
         x = func.pad(x, [0, 1, 0, 1])
-        print("success 3")
 
         for i in range(3, 6):
-            x = one_input_forward(self.VAE_layer[i], x)
+            x = self.VAE_layer[i](x)
         x = func.pad(x, [0, 1, 0, 1])
 
         for i in range(6, 9):
-            x = one_input_forward(self.VAE_layer[i], x)
+            x = self.VAE_layer[i](x)
         x = func.pad(x, [0, 1, 0, 1])
 
         for i in range(9, 13):
-            x = one_input_forward(self.VAE_layer[i], x)
+            x = self.VAE_layer[i](x)
 
         residue = x
-        x = one_input_forward(self.VAE_layer[13], x)
+        x = self.VAE_layer[13](x)
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
-        x, _ = three_input_forward(self.VAE_layer[14], x, x, x)
+        x, _ = self.VAE_layer[14](x, x, x)
         x = x.reshape(-1, 512, h, w) + residue
 
-        x = one_input_forward(self.VAE_layer[15], x)
-        x = one_input_forward(self.VAE_layer[16], x)
-        x = one_input_forward(func.silu, x)
-        x = one_input_forward(self.VAE_layer[17], x)
-        x = one_input_forward(self.VAE_layer[18], x)
+        x = self.VAE_layer[15](x)
+        x = self.VAE_layer[16](x)
+        x = func.silu(x)
+        x = self.VAE_layer[17](x)
+        x = self.VAE_layer[18](x)
 
         mean_tensor, log_variance_tensor = x.chunk(2, 1)
         std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
@@ -364,20 +375,20 @@ class Diffusion_Video_Model(nn.Module):
 
     def decode(self, latent):
         for i in range(3):
-            latent = one_input_forward(self.decode_layer[i], latent)
+            latent = self.decode_layer[i](latent)
 
         residue = latent
-        latent = one_input_forward(self.decode_layer[3], latent)
+        latent = self.decode_layer[3](latent)
         h, w = latent.shape[-2:]
         latent = latent.reshape(-1, h * w, 512)
-        latent, _ = three_input_forward(self.decode_layer[4], latent, latent, latent)
+        latent, _ = self.decode_layer[4](latent, latent, latent)
         latent = latent.reshape(-1, 512, h, w) + residue
 
         for i in range(5, 25):
-            latent = one_input_forward(self.decode_layer[i], latent)
+            latent = self.decode_layer[i](latent)
 
-        latent = one_input_forward(func.silu, latent)
-        return one_input_forward(self.decode_layer[25], latent)
+        latent = func.silu(latent)
+        return self.decode_layer[25](latent)
 
     def text_processing(self, text_embedding):
         x = text_embedding
@@ -493,7 +504,10 @@ class Diffusion_Video_Model(nn.Module):
 
         random_index = random.randint(0, batch_size * frames // 2 - 1)
         random_frame = batch_frames[random_index * 2:random_index * 2 + 2]
-        print("success 1")
+
+        print(random_index)
+        print(random_frame.shape)
+
         loss = self.criterion(self.decode(self.encode_layer(random_frame)), random_frame)
         loss.backward()
         self.optimizer.step()
