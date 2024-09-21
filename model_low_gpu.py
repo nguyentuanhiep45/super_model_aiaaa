@@ -564,6 +564,7 @@ class Diffusion_Video_Model(nn.Module):
         memory_latent = []
         id_list = []
         id_list2 = []
+        id_list3 = []
         for i in range(batch_size * frames // 4):
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
             if i == 0:
@@ -582,6 +583,21 @@ class Diffusion_Video_Model(nn.Module):
                             break
                     if cc:
                         print(ob.shape)
+                        print("-----------")
+
+            if i == 2:
+                for ob in gc.get_objects():
+                    if isinstance(ob, torch.Tensor):
+                        id_list3.append(ob)
+                for ob in id_list3:
+                    cc = True
+                    for obs in id_list2:
+                        if id(ob) == id(obs):
+                            cc = False
+                            break
+                    if cc:
+                        print(ob.shape)
+                        print("-----------")
 
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
