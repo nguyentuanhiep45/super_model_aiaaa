@@ -276,6 +276,8 @@ class VAE(nn.Module):
                 print(x.shape)
                 print(self.VAE_layer[i])
                 x = self.VAE_layer[i](x)
+                print("success")
+
             x = func.pad(x, [0, 1, 0, 1])
             print(2)
 
