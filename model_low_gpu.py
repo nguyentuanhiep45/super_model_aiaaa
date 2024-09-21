@@ -508,6 +508,9 @@ class Diffusion_Video_Model(nn.Module):
         random_index = random.randint(0, batch_size * frames // 2 - 1)
         random_frame = batch_frames[random_index * 2:random_index * 2 + 2]
 
+        print(random_index)
+        print(random_frame.shape)
+
         loss = self.criterion(self.decode(self.encode_layer(random_frame)), random_frame)
         loss.backward()
         self.optimizer.step()
