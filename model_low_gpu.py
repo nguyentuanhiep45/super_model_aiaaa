@@ -239,38 +239,41 @@ class VAE(nn.Module):
         ])
 
     def forward(self, x):
-        for i in range(3):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
+        def forward_checkpoint(x):
+            for i in range(3):
+                x = self.VAE_layer[i](x)
+            x = func.pad(x, [0, 1, 0, 1])
 
-        for i in range(3, 6):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
+            for i in range(3, 6):
+                x = self.VAE_layer[i](x)
+            x = func.pad(x, [0, 1, 0, 1])
 
-        for i in range(6, 9):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
+            for i in range(6, 9):
+                x = self.VAE_layer[i](x)
+            x = func.pad(x, [0, 1, 0, 1])
 
-        for i in range(9, 13):
-            x = self.VAE_layer[i](x)
+            for i in range(9, 13):
+                x = self.VAE_layer[i](x)
 
-        residue = x
-        x = self.VAE_layer[13](x)
-        h, w = x.shape[-2:]
-        x = x.reshape(-1, h * w, 512)
-        x, _ = self.VAE_layer[14](x, x, x)
-        x = x.reshape(-1, 512, h, w) + residue
+            residue = x
+            x = self.VAE_layer[13](x)
+            h, w = x.shape[-2:]
+            x = x.reshape(-1, h * w, 512)
+            x, _ = self.VAE_layer[14](x, x, x)
+            x = x.reshape(-1, 512, h, w) + residue
 
-        x = self.VAE_layer[15](x)
-        x = self.VAE_layer[16](x)
-        x = func.silu(x)
-        x = self.VAE_layer[17](x)
-        x = self.VAE_layer[18](x)
+            x = self.VAE_layer[15](x)
+            x = self.VAE_layer[16](x)
+            x = func.silu(x)
+            x = self.VAE_layer[17](x)
+            x = self.VAE_layer[18](x)
 
-        mean_tensor, log_variance_tensor = x.chunk(2, 1)
-        std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
+            mean_tensor, log_variance_tensor = x.chunk(2, 1)
+            std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
 
-        return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
+            return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
+        
+        return checkpoint(forward_checkpoint, x, use_reentrant = False)
 
 class Diffusion_Video_Model(nn.Module):
     def __init__(self):
