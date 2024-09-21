@@ -570,6 +570,10 @@ class Diffusion_Video_Model(nn.Module):
         h = height // 8
         w = width // 8
 
+        print(height)
+        print(width)
+
+
         # shape (B * 64, 16, 64, 96)
         memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
         # shape (B * 64, 3, 512, 768)
@@ -653,6 +657,7 @@ class Diffusion_Video_Model(nn.Module):
                     batch_prompt.append(df.read())
         # (B, 64, 3, 512, 768)
         batch_video = torch.stack(batch_video).to(self.device) / 255. * 2 - 1
+        print(batch_video.shape)
 
         for _ in range(100):
             losses.append(self.one_step_train(batch_video, batch_prompt))
