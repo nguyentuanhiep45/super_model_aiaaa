@@ -226,11 +226,8 @@ class VAE_Unit(nn.Module):
 
     def forward(self, x):
         def forward_checkpoint(x):
-            print("invae")
             residue = x
             x = self.VAE_unit_layer[0](x)
-            print("invae2")
-
             x = func.silu(x)
             x = self.VAE_unit_layer[1](x)
             x = self.VAE_unit_layer[2](x)
@@ -270,30 +267,21 @@ class VAE(nn.Module):
 
     def forward(self, x):
         def forward_checkpoint(x):
-            print(1)
             for i in range(3):
-                print(x)
                 print(x.shape)
-                print(self.VAE_layer[i])
                 x = self.VAE_layer[i](x)
-                print("success")
-
             x = func.pad(x, [0, 1, 0, 1])
-            print(2)
 
             for i in range(3, 6):
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
-            print(3)
 
             for i in range(6, 9):
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
-            print(4)
 
             for i in range(9, 13):
                 x = self.VAE_layer[i](x)
-            print(5)
 
             residue = x
             x = self.VAE_layer[13](x)
@@ -301,14 +289,12 @@ class VAE(nn.Module):
             x = x.reshape(-1, h * w, 512)
             x, _ = self.VAE_layer[14](x, x, x)
             x = x.reshape(-1, 512, h, w) + residue
-            print(6)
 
             x = self.VAE_layer[15](x)
             x = self.VAE_layer[16](x)
             x = func.silu(x)
             x = self.VAE_layer[17](x)
             x = self.VAE_layer[18](x)
-            print(7)
 
             mean_tensor, log_variance_tensor = x.chunk(2, 1)
             std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
@@ -569,16 +555,22 @@ class Diffusion_Video_Model(nn.Module):
         batch_size, frames, _, height, width = batch_video.shape
         h = height // 8
         w = width // 8
+        # (B * 64, 3, 512, 768)
+        batch_frames = batch_video.reshape(-1, 3, height, width)
 
-        print(height)
-        print(width)
+        # gồm B * 64 / 4 khúc, mỗi khúc (4, 3, 64, 96)
+        memory_latent = []
+        for i in range(batch_size * frames // 4):
+            memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
 
+        # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
+        random_frame = random.randint(0, len(original_frame) - 1)
+        original_frame = self.decode(memory_latent[random_frame])
 
-        # shape (B * 64, 16, 64, 96)
-        memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
-        # shape (B * 64, 3, 512, 768)
-        original_frame = self.decode(memory_latent)
-        loss_1 = self.criterion(original_frame, batch_video.reshape(-1, 3, height, width))
+        loss_1 = self.criterion(original_frame, batch_frames[random_frame:random_frame+4])
+        loss_1.backward()
+        self.optimizer.step()
+        self.optimizer.zero_grad()
 
         random_frame = random.randint(0, frames - 1)
         random_time = random.randint(0, 999)
@@ -586,12 +578,13 @@ class Diffusion_Video_Model(nn.Module):
 
 
         # shape (B, 16, 64, 96)
-        chosen_latent = memory_latent.reshape(batch_size, frames, 16, h, w)[:, random_frame]
+        memory_latent = torch.cat(memory_latent, 0).reshape(batch_size, frames, 16, h, w)
+        chosen_latent = memory_latent[:, random_frame]
 
         # shape (B, 23, 16, 64, 96)
         previous_latent = torch.cat((
             torch.zeros(batch_size, 1, 16, h, w, device = self.device), 
-            memory_latent.reshape(batch_size, frames, 16, h, w)[:, :random_frame]
+            memory_latent[:, :random_frame]
         ), 1)
 
         # shape (B, 16, 64, 96)
@@ -628,17 +621,17 @@ class Diffusion_Video_Model(nn.Module):
         _, _, frames = configuration_at_time_step(time_step)
         resolution = time_step % 6
         if resolution == 0:
-            resolution = [384, 512]
+            resolution = [512, 384]
         elif resolution == 1:
-            resolution = [512, 768]
+            resolution = [768, 512]
         elif resolution == 2:
-            resolution = [640, 1024]
+            resolution = [1024, 640]
         elif resolution == 3:
-            resolution = [896, 1408]
+            resolution = [1408, 896]
         elif resolution == 4:
-            resolution = [1024, 1664]
+            resolution = [1664, 1024]
         elif resolution == 5:
-            resolution = [1280, 1920]
+            resolution = [1920, 1280]
 
         batch_video = []
         batch_prompt = []
@@ -649,7 +642,6 @@ class Diffusion_Video_Model(nn.Module):
                 curent_video = []
                 video_generator = cv.VideoCapture(os.path.join("videos", f))
                 for _ in range(frames):
-                    print(cv.resize(video_generator.read()[1], resolution).shape)
                     curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
                 video_generator.release()
                 # (64, 3, 512, 768)
@@ -658,7 +650,6 @@ class Diffusion_Video_Model(nn.Module):
                     batch_prompt.append(df.read())
         # (B, 64, 3, 512, 768)
         batch_video = torch.stack(batch_video).to(self.device) / 255. * 2 - 1
-        print(batch_video.shape)
 
         for _ in range(100):
             losses.append(self.one_step_train(batch_video, batch_prompt))
