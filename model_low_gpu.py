@@ -12,6 +12,7 @@ from video import configuration_at_time_step
 import re
 import gc
 import time
+import sys
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -582,7 +583,7 @@ class Diffusion_Video_Model(nn.Module):
                             cc = False
                             break
                     if cc:
-                        print(ob.shape)
+                        print(sys.getsizeof(ob.storage()))
             print("-----------")
 
             if i == 2:

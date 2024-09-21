@@ -1,9 +1,5 @@
 import gc
-
-class foo:
-    pass
-
-a = foo()
-for ob in gc.get_objects():
-    if isinstance(ob, foo):
-        print(id(ob))
+import sys
+import torch
+a = torch.randn(4, 3, 384, 512)
+print(sys.getsizeof(a.storage()))
