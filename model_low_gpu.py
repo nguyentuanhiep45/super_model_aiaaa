@@ -649,6 +649,7 @@ class Diffusion_Video_Model(nn.Module):
                 curent_video = []
                 video_generator = cv.VideoCapture(os.path.join("videos", f))
                 for _ in range(frames):
+                    print(cv.resize(video_generator.read()[1], resolution).shape)
                     curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
                 video_generator.release()
                 # (64, 3, 512, 768)
