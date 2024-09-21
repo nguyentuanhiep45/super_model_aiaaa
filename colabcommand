@@ -10,4 +10,5 @@
 !git fetch origin
 !git merge origin/main
 !rm -rf videos
+!rm -rf computational_graph
 !python pipeline.py

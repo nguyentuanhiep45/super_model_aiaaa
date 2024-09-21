@@ -225,12 +225,9 @@ class VAE(nn.Module):
         ])
 
     def forward(self, x):
-        print("success 2")
-
         for i in range(3):
             x = one_input_forward(self.VAE_layer[i], x)
         x = func.pad(x, [0, 1, 0, 1])
-        print("success 3")
 
         for i in range(3, 6):
             x = one_input_forward(self.VAE_layer[i], x)
@@ -243,16 +240,12 @@ class VAE(nn.Module):
         for i in range(9, 13):
             x = one_input_forward(self.VAE_layer[i], x)
 
-        print("success 4")
-
         residue = x
         x = one_input_forward(self.VAE_layer[13], x)
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
-        print("success 5")
 
         x, _ = three_input_forward(self.VAE_layer[14], x, x, x)
-        print("success 6")
 
         x = x.reshape(-1, 512, h, w) + residue
 
@@ -265,9 +258,6 @@ class VAE(nn.Module):
 
         mean_tensor, log_variance_tensor = x.chunk(2, 1)
         std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
-
-        print("success 7")
-
 
         return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
         
@@ -503,8 +493,8 @@ class Diffusion_Video_Model(nn.Module):
 
         random_index = random.randint(0, batch_size * frames // 2 - 1)
         random_frame = batch_frames[random_index * 2:random_index * 2 + 2]
-        print("success 1")
         loss = self.criterion(self.decode(self.encode_layer(random_frame)), random_frame)
+        print(loss)
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()

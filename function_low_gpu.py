@@ -49,12 +49,12 @@ class Three_Input_Call(torch.autograd.Function):
         return None, input_tensor_1.grad, input_tensor_2.grad, input_tensor_3.grad
     
 def one_input_forward(module, x):
-    bearer = torch.tensor([], device = "cuda" if torch.cuda.is_available() else "cpu")
+    bearer = torch.tensor([], requires_grad = True, device = "cuda" if torch.cuda.is_available() else "cpu")
     bearer.net = module
     return One_Input_Call.apply(bearer, x)
 
 def three_input_forward(module, x, y, z):
-    bearer = torch.tensor([], device = "cuda" if torch.cuda.is_available() else "cpu")
+    bearer = torch.tensor([], requires_grad = True, device = "cuda" if torch.cuda.is_available() else "cpu")
     bearer.net = module
     return Three_Input_Call.apply(bearer, x, y, z)
 
