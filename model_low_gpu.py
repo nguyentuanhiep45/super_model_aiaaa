@@ -562,13 +562,21 @@ class Diffusion_Video_Model(nn.Module):
 
         # gồm B * 64 / 4 khúc, mỗi khúc (4, 3, 64, 96)
         memory_latent = []
+        id_list = []
+        id_list2 = []
         for i in range(batch_size * frames // 4):
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
-            dem = 0
-            for ob in gc.get_objects():
-                if isinstance(ob, torch.Tensor):
-                    dem += 1
-            print(dem)
+            if i == 0:
+                for ob in gc.get_objects():
+                    if isinstance(ob, torch.Tensor):
+                        id_list.append(ob)
+            if i == 1:
+                for ob in gc.get_objects():
+                    if isinstance(ob, torch.Tensor):
+                        id_list2.append(ob)
+                for idx in id_list2 and idx not in id_list:
+                    print(idx)
+
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
         random_frame = random.randint(0, len(original_frame) - 1)
