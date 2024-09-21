@@ -1,3 +1,8 @@
-import re
+import gc
 
-print(re.search(r"video(\d+)\.mp4", "video14a.mp4"))
+class foo:
+    pass
+
+a = foo()
+b = a
+print(gc.get_referrers(a)[0])

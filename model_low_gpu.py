@@ -563,12 +563,8 @@ class Diffusion_Video_Model(nn.Module):
         # gồm B * 64 / 4 khúc, mỗi khúc (4, 3, 64, 96)
         memory_latent = []
         for i in range(batch_size * frames // 4):
-            print("waiting")
-            time.sleep(20)
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
             gc.collect()
-            print("collecting")
-            time.sleep(20)
             print("encode" + str(i))
             print(len(memory_latent))
             print(memory_latent[-1].shape)
