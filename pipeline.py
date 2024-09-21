@@ -17,9 +17,10 @@ if torch.cuda.is_available():
     print("Model has been moved to CUDA!")
 
 for time_step in range(1000000):
-    if exist_video():
-        delete_video()
-    download_video(time_step)
+    #change this shit
+    if not exist_video():
+        # delete_video()
+        download_video(time_step)
 
     loss = model.train(time_step)
     print("Time step " + str(time_step) + ": Loss = " + str(loss))
