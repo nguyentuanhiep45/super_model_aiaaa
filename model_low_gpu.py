@@ -226,8 +226,11 @@ class VAE_Unit(nn.Module):
 
     def forward(self, x):
         def forward_checkpoint(x):
+            print("invae")
             residue = x
             x = self.VAE_unit_layer[0](x)
+            print("invae2")
+
             x = func.silu(x)
             x = self.VAE_unit_layer[1](x)
             x = self.VAE_unit_layer[2](x)
@@ -269,6 +272,7 @@ class VAE(nn.Module):
         def forward_checkpoint(x):
             print(1)
             for i in range(3):
+                print("inrange")
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
             print(2)
