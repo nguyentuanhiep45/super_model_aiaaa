@@ -3,10 +3,11 @@ import sys
 import torch
 from torch import nn
 from torchviz import make_dot
-def foo():
-    return torch.tensor([1, 2, 3])
 
-ggnore, _ = foo()
+a = torch.randn(2, 4)
+ggnore, ggnora = a
+ggnore[0] = 100
+print(a)
 # class multiplus(torch.autograd.Function):
 #     def forward(context, input1, input2):
 #         context.save_for_backward(input1, input2)

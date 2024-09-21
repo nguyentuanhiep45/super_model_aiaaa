@@ -245,11 +245,7 @@ class VAE(nn.Module):
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
 
-        x, ggnore = three_input_forward(self.VAE_layer[14], x, x, x)
-        print("debughuanrose")
-        print(x.shape)
-        print(ggnore)
-
+        x = three_input_forward(self.VAE_layer[14], x, x, x)
         x = x.reshape(-1, 512, h, w) + residue
 
 
@@ -373,7 +369,7 @@ class Diffusion_Video_Model(nn.Module):
         latent = one_input_forward(self.decode_layer[3], latent)
         h, w = latent.shape[-2:]
         latent = latent.reshape(-1, h * w, 512)
-        latent, _ = three_input_forward(self.decode_layer[4], latent, latent, latent)
+        latent = three_input_forward(self.decode_layer[4], latent, latent, latent)
         latent = latent.reshape(-1, 512, h, w) + residue
 
         for i in range(5, 25):
