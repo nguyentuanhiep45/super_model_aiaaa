@@ -249,17 +249,19 @@ class VAE(nn.Module):
         x = one_input_forward(self.VAE_layer[13], x)
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
+        print("success 5")
+
         x, _ = three_input_forward(self.VAE_layer[14], x, x, x)
+        print("success 6")
+
         x = x.reshape(-1, 512, h, w) + residue
 
-        print("success 5")
 
         x = one_input_forward(self.VAE_layer[15], x)
         x = one_input_forward(self.VAE_layer[16], x)
         x = one_input_forward(func.silu, x)
         x = one_input_forward(self.VAE_layer[17], x)
         x = one_input_forward(self.VAE_layer[18], x)
-        print("success 6")
 
         mean_tensor, log_variance_tensor = x.chunk(2, 1)
         std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
