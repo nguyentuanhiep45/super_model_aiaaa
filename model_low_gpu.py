@@ -272,7 +272,9 @@ class VAE(nn.Module):
         def forward_checkpoint(x):
             print(1)
             for i in range(3):
-                print("inrange")
+                print(x)
+                print(x.shape)
+                print(self.VAE_layer[i])
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
             print(2)
