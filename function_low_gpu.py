@@ -56,5 +56,5 @@ def one_input_forward(module, x):
 def three_input_forward(module, x, y, z):
     bearer = torch.tensor([], device = "cuda" if torch.cuda.is_available() else "cpu")
     bearer.net = module
-    return One_Input_Call.apply(bearer, x, y, z)
+    return Three_Input_Call.apply(bearer, x, y, z)
 
