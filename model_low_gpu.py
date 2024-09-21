@@ -564,10 +564,11 @@ class Diffusion_Video_Model(nn.Module):
         memory_latent = []
         for i in range(batch_size * frames // 4):
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
-            gc.collect()
-            print("encode" + str(i))
-            print(len(memory_latent))
-            print(memory_latent[-1].shape)
+            dem = 0
+            for ob in gc.get_objects():
+                if isinstance(ob, torch.Tensor):
+                    dem += 1
+            print(dem)
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
         random_frame = random.randint(0, len(original_frame) - 1)

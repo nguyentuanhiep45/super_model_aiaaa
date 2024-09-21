@@ -4,5 +4,6 @@ class foo:
     pass
 
 a = foo()
-b = a
-print(gc.get_referrers(a)[0])
+for ob in gc.get_objects():
+    if isinstance(ob, foo):
+        print(id(ob))
