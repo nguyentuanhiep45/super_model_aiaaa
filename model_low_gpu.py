@@ -10,6 +10,7 @@ import os
 import cv2 as cv
 from video import configuration_at_time_step
 import re
+import gc
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -561,6 +562,7 @@ class Diffusion_Video_Model(nn.Module):
         memory_latent = []
         for i in range(batch_size * frames // 4):
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
+            gc.collect()
             print("encode" + str(i))
             print(len(memory_latent))
             print(memory_latent[-1])
