@@ -273,14 +273,17 @@ class VAE(nn.Module):
             x = func.pad(x, [0, 1, 0, 1])
 
             for i in range(3, 6):
+                print(x.shape)
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
 
             for i in range(6, 9):
+                print(x.shape)
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
 
             for i in range(9, 13):
+                print(x.shape)
                 x = self.VAE_layer[i](x)
 
             residue = x
@@ -295,6 +298,7 @@ class VAE(nn.Module):
             x = func.silu(x)
             x = self.VAE_layer[17](x)
             x = self.VAE_layer[18](x)
+            print(x.shape)
 
             mean_tensor, log_variance_tensor = x.chunk(2, 1)
             std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
@@ -561,6 +565,7 @@ class Diffusion_Video_Model(nn.Module):
         # gồm B * 64 / 4 khúc, mỗi khúc (4, 3, 64, 96)
         memory_latent = []
         for i in range(batch_size * frames // 4):
+            print("encode" + str(i))
             memory_latent.append(self.encode_layer(batch_frames[i:i+4]))
 
         # decode 1 khúc ngẫu nhiên, ra (4, 3, 512, 768)
