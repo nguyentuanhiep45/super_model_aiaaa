@@ -31,11 +31,11 @@ class Three_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor_1, input_tensor_2, input_tensor_3):
         context.module = module.net
         context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_1, context.name)
+        torch.save(input_tensor_1, context.name_1)
         context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_2, context.name)
+        torch.save(input_tensor_2, context.name_2)
         context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_3, context.name)
+        torch.save(input_tensor_3, context.name_3)
         return module.net(input_tensor_1, input_tensor_2, input_tensor_3)[0]
         
     def backward(context, output_gradient):
