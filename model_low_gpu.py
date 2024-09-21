@@ -267,20 +267,25 @@ class VAE(nn.Module):
 
     def forward(self, x):
         def forward_checkpoint(x):
+            print(1)
             for i in range(3):
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
+            print(2)
 
             for i in range(3, 6):
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
+            print(3)
 
             for i in range(6, 9):
                 x = self.VAE_layer[i](x)
             x = func.pad(x, [0, 1, 0, 1])
+            print(4)
 
             for i in range(9, 13):
                 x = self.VAE_layer[i](x)
+            print(5)
 
             residue = x
             x = self.VAE_layer[13](x)
@@ -288,12 +293,14 @@ class VAE(nn.Module):
             x = x.reshape(-1, h * w, 512)
             x, _ = self.VAE_layer[14](x, x, x)
             x = x.reshape(-1, 512, h, w) + residue
+            print(6)
 
             x = self.VAE_layer[15](x)
             x = self.VAE_layer[16](x)
             x = func.silu(x)
             x = self.VAE_layer[17](x)
             x = self.VAE_layer[18](x)
+            print(7)
 
             mean_tensor, log_variance_tensor = x.chunk(2, 1)
             std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
@@ -556,6 +563,7 @@ class Diffusion_Video_Model(nn.Module):
         w = width // 8
 
         # shape (B * 64, 16, 64, 96)
+        print(batch_video.reshape(-1, 3, height, width))
         memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
         # shape (B * 64, 3, 512, 768)
         original_frame = self.decode(memory_latent)

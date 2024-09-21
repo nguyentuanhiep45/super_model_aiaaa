@@ -10,4 +10,4 @@
 !git fetch origin
 !git merge origin/main
 !rm -rf videos
-!python pipeline
+!python pipeline.py
