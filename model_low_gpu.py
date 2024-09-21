@@ -563,7 +563,6 @@ class Diffusion_Video_Model(nn.Module):
         w = width // 8
 
         # shape (B * 64, 16, 64, 96)
-        print(batch_video.reshape(-1, 3, height, width))
         memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
         # shape (B * 64, 3, 512, 768)
         original_frame = self.decode(memory_latent)
@@ -645,7 +644,7 @@ class Diffusion_Video_Model(nn.Module):
                 with open("videos/description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
                     batch_prompt.append(df.read())
         # (B, 64, 3, 512, 768)
-        batch_video = torch.stack(batch_video).to(self.device)
+        batch_video = torch.stack(batch_video).to(self.device) / 255. * 2 - 1
 
         for _ in range(100):
             losses.append(self.one_step_train(batch_video, batch_prompt))

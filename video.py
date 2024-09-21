@@ -25,7 +25,8 @@ def is_short_video(duration_str, duration_limit):
 # (batch_size, khoảng thời gian video cho phép, số frame train memory)
 def configuration_at_time_step(time_step):
     if time_step < 1000:
-        return (32, [5, 3 * 60], 64)
+        # change this shit to 32
+        return (2, [5, 3 * 60], 64)
     elif time_step < 5000:
         return (16, [30, 5 * 60], 128)
     elif time_step < 10000:
@@ -61,7 +62,7 @@ def download_video(time_step):
                                 bonus_description = ". "
                                 for desc in v["descriptionSnippet"]:
                                     bonus_description += desc["text"]
-                                    
+
                             v_description = v["title"] + bonus_description
 
                 ytd.download(["https://www.youtube.com/watch?v=" + v_id])
