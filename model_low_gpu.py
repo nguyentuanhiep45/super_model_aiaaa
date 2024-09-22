@@ -635,8 +635,7 @@ class Diffusion_Video_Model(nn.Module):
         _, frames = configuration_at_time_step(time_step)
         resolution = time_step % 6
         if resolution == 0:
-            # change this shit to 512 384
-            resolution = [256, 256]
+            resolution = [512, 384]
         elif resolution == 1:
             resolution = [768, 512]
         elif resolution == 2:
@@ -662,18 +661,14 @@ class Diffusion_Video_Model(nn.Module):
             prompt.append(df.read())
         print("Prompt has been readed!")
 
-        # restore this shit
-        # memory_latent = []
-        # with torch.no_grad():
-        #     for i in range(frames // 4):
-        #         memory_latent.append(self.encode_layer(video[i:i + 4]))
-        #         print("Encode chunk " + str(i))
+        memory_latent = []
+        with torch.no_grad():
+            for i in range(frames // 4):
+                memory_latent.append(self.encode_layer(video[i:i + 4]))
+                print("Encode chunk " + str(i))
 
-        # # (1, 64, 16, 64, 96)
-        # memory_latent = torch.cat(memory_latent).unsqueeze(0)
-
-        # remove this shit
-        memory_latent = torch.randn(1, 64, 16, 32, 32, device = self.device)
+        # (1, 64, 16, 64, 96)
+        memory_latent = torch.cat(memory_latent).unsqueeze(0)
 
         torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
