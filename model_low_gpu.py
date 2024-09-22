@@ -599,7 +599,6 @@ class Diffusion_Video_Model(nn.Module):
             loss = self.one_step_train_auto_encoder(batch_frames, True)
             losses.append(loss)
             torch.cuda.empty_cache()
-            a = None * 2
 
         return sum(losses) / len(losses)
     
