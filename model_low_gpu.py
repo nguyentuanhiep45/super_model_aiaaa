@@ -125,7 +125,7 @@ class Diffusion_Second_Unit(nn.Module):
         residue_short = latent
         latent = one_input_forward(self.diffusion_second_unit_layer[8], latent)
         latent, gate = one_input_forward(self.diffusion_second_unit_layer[9], latent).chunk(2, -1)
-        latent = Modified_Multiply.apply(latent, three_input_forward(func.gelu, gate))
+        latent = Modified_Multiply.apply(latent, one_input_forward(func.gelu, gate))
         latent = one_input_forward(self.diffusion_second_unit_layer[10], latent) + residue_short
         latent = latent.reshape(-1, self.out_channels, h, w)
         latent = one_input_forward(self.diffusion_second_unit_layer[11], latent) + residue_long
