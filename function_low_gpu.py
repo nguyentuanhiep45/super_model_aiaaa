@@ -41,12 +41,13 @@ class One_Input_Call(torch.autograd.Function):
 
 class Two_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor_1, input_tensor_2):
-        context.module = module.net
-        context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_1, context.name_1)
-        context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_2, context.name_2)
-        print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:])
+        if is_training:
+            context.module = module.net
+            context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_1, context.name_1)
+            context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_2, context.name_2)
+            print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:])
         print(module.net)
         torch.cuda.empty_cache()
         return module.net(input_tensor_1, input_tensor_2)
@@ -66,14 +67,16 @@ class Two_Input_Call(torch.autograd.Function):
 
 class Three_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor_1, input_tensor_2, input_tensor_3):
-        context.module = module.net
-        context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_1, context.name_1)
-        context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_2, context.name_2)
-        context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_3, context.name_3)
-        print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:] + " " + context.name_3[-10:])
+        if is_training:
+            context.module = module.net
+            context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_1, context.name_1)
+            context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_2, context.name_2)
+            context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_3, context.name_3)
+            print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:] + " " + context.name_3[-10:])
+
         print(module.net)
         torch.cuda.empty_cache()
         return module.net(input_tensor_1, input_tensor_2, input_tensor_3)[0]
@@ -95,22 +98,23 @@ class Three_Input_Call(torch.autograd.Function):
 
 class Four_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor_1, input_tensor_2, input_tensor_3, input_tensor_4):
-        context.module = module.net
-        context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_1, context.name_1)
-        context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_2, context.name_2)
-        context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_3, context.name_3)
-        context.name_4 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_4, context.name_4)
-        print(
-            "forward : " + 
-            context.name_1[-10:] + " " + 
-            context.name_2[-10:] + " " + 
-            context.name_3[-10:] + " " + 
-            context.name_4[-10:]
-        )
+        if is_training:
+            context.module = module.net
+            context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_1, context.name_1)
+            context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_2, context.name_2)
+            context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_3, context.name_3)
+            context.name_4 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_4, context.name_4)
+            print(
+                "forward : " + 
+                context.name_1[-10:] + " " + 
+                context.name_2[-10:] + " " + 
+                context.name_3[-10:] + " " + 
+                context.name_4[-10:]
+            )
         print(module.net)
         torch.cuda.empty_cache()
         return module.net(input_tensor_1, input_tensor_2, input_tensor_3, attn_mask = input_tensor_4)[0]
@@ -160,11 +164,12 @@ def four_input_forward(module, x, y, z, w):
 
 class Modified_Multiply(torch.autograd.Function):
     def forward(context, input_tensor_1, input_tensor_2):
-        context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_1, context.name_1)
-        context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
-        torch.save(input_tensor_2, context.name_2)
-        print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:])
+        if is_training:
+            context.name_1 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_1, context.name_1)
+            context.name_2 = os.path.join("computational_graph", generate_tensor_file_name())
+            torch.save(input_tensor_2, context.name_2)
+            print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:])
         print("Modified Multiply")
         torch.cuda.empty_cache()
         return input_tensor_1 * input_tensor_2

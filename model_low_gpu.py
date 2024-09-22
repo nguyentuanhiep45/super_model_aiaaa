@@ -13,6 +13,7 @@ import re
 import gc
 import time
 import sys
+import function_low_gpu
 from function_low_gpu import one_input_forward, three_input_forward, four_input_forward, Modified_Multiply
 import psutil as ps
 
@@ -485,6 +486,7 @@ class Diffusion_Video_Model(nn.Module):
         return self.latent_tokenize_layer(previous_latent.reshape(previous_latent.shape[0], 1, -1)).permute(0, 2, 1)
 
     def infer(self, prompts, latent_shape, frames):
+        function_low_gpu.is_training = False
         batch_size = len(prompts)
         h, w = latent_shape
 
@@ -504,7 +506,8 @@ class Diffusion_Video_Model(nn.Module):
             for _ in range(frames):
                 latent = torch.randn(batch_size, 16, h, w, device = self.device)
 
-                for t in range(980, 0, -20):
+                # change this shit to 0
+                for t in range(980, 940, -20):
                     time_embedding = time_encoder(320, t).reshape(1, 320).to(self.device)
                     predicted_noise = self.latent_processing(latent, context, time_embedding, memory_latent)
 
@@ -593,6 +596,8 @@ class Diffusion_Video_Model(nn.Module):
         return loss.item()
 
     def train_auto_encoder(self, time_step):
+        function_low_gpu.is_training = True
+
         resolution = time_step % 6
         if resolution == 0:
             resolution = [512, 384]
@@ -632,6 +637,8 @@ class Diffusion_Video_Model(nn.Module):
         return sum(losses) / len(losses)
     
     def train_stable_diffusion(self, time_step):
+        function_low_gpu.is_training = True
+
         _, frames = configuration_at_time_step(time_step)
         resolution = time_step % 6
         if resolution == 0:
