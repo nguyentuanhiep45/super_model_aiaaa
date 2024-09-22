@@ -26,6 +26,7 @@ class One_Input_Call(torch.autograd.Function):
         
     def backward(context, output_gradient):
         print("backward : " + context.name[-10:])
+        print("Current GPU Usage : " + str(torch.cuda.memory_allocated(0) / 1024 ** 3))
 
         input_tensor = torch.load(context.name, weights_only = True)
         os.remove(context.name)
@@ -50,6 +51,7 @@ class Two_Input_Call(torch.autograd.Function):
         
     def backward(context, output_gradient):
         print("backward : " + context.name_1[-10:] + " " + context.name_2[-10:])
+        print("Current GPU Usage : " + str(torch.cuda.memory_allocated(0) / 1024 ** 3))
         input_tensor_1 = torch.load(context.name_1, weights_only = True)
         input_tensor_2 = torch.load(context.name_2, weights_only = True)
         os.remove(context.name_1)
@@ -76,6 +78,7 @@ class Three_Input_Call(torch.autograd.Function):
         
     def backward(context, output_gradient):
         print("backward : " + context.name_1[-10:] + " " + context.name_2[-10:] + " " + context.name_3[-10:])
+        print("Current GPU Usage : " + str(torch.cuda.memory_allocated(0) / 1024 ** 3))
         input_tensor_1 = torch.load(context.name_1, weights_only = True)
         input_tensor_2 = torch.load(context.name_2, weights_only = True)
         input_tensor_3 = torch.load(context.name_3, weights_only = True)
@@ -118,6 +121,7 @@ class Four_Input_Call(torch.autograd.Function):
             context.name_3[-10:] + " " + 
             context.name_4[-10:]
         )
+        print("Current GPU Usage : " + str(torch.cuda.memory_allocated(0) / 1024 ** 3))
         input_tensor_1 = torch.load(context.name_1, weights_only = True)
         input_tensor_2 = torch.load(context.name_2, weights_only = True)
         input_tensor_3 = torch.load(context.name_3, weights_only = True)
