@@ -1,3 +1,3 @@
 import psutil as ps
 
-print(ps.Process(ps.pids()[0]))
+print(ps.virtual_memory().used)

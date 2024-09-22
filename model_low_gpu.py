@@ -14,6 +14,7 @@ import gc
 import time
 import sys
 from function_low_gpu import one_input_forward, three_input_forward
+import psutil as ps
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -598,6 +599,13 @@ class Diffusion_Video_Model(nn.Module):
             loss = self.one_step_train_auto_encoder(batch_frames, True)
             losses.append(loss)
             torch.cuda.empty_cache()
+            print(
+                "Current CPU RAM Usage : " + 
+                str(ps.virtual_memory().used / 1024 ** 3) + 
+                " / " + 
+                str(ps.virtual_memory().total / 1024 ** 3) +
+                " GB"
+            )
 
         return sum(losses) / len(losses)
     
