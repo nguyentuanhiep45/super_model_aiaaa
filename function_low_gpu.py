@@ -18,11 +18,15 @@ class One_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor):
         context.module = module.net
         context.name = os.path.join("computational_graph", generate_tensor_file_name())
+        print("forward : " + context.name[-10:])
+        print(module.net)
         torch.save(input_tensor, context.name)
         torch.cuda.empty_cache()
         return module.net(input_tensor)
         
     def backward(context, output_gradient):
+        print("backward : " + context.name[-10:])
+
         input_tensor = torch.load(context.name, weights_only = True)
         os.remove(context.name)
         with torch.enable_grad():
@@ -41,10 +45,13 @@ class Three_Input_Call(torch.autograd.Function):
         torch.save(input_tensor_2, context.name_2)
         context.name_3 = os.path.join("computational_graph", generate_tensor_file_name())
         torch.save(input_tensor_3, context.name_3)
+        print("forward : " + context.name_1[-10:] + " " + context.name_2[-10:] + " " + context.name_3[-10:])
+        print(module.net)
         torch.cuda.empty_cache()
         return module.net(input_tensor_1, input_tensor_2, input_tensor_3)[0]
         
     def backward(context, output_gradient):
+        print("backward : " + context.name_1[-10:] + " " + context.name_2[-10:] + " " + context.name_3[-10:])
         input_tensor_1 = torch.load(context.name_1, weights_only = True)
         input_tensor_2 = torch.load(context.name_2, weights_only = True)
         input_tensor_3 = torch.load(context.name_3, weights_only = True)

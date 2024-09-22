@@ -499,21 +499,19 @@ class Diffusion_Video_Model(nn.Module):
 
         return (video, debug_information)
     
-    def one_step_train_auto_encoder(self, batch_frames, verbose = False):
+    def one_step_train_auto_encoder(self, batch_frames):
         loss = self.autoencoder_criterion(self.decode(self.encode_layer(batch_frames)), batch_frames)
-        if verbose:
-            print("Autoencoder Loss = " + str(loss.item()))
+        print("Autoencoder Loss = " + str(loss.item()))
 
         loss.backward()
         self.autoencoder_optimizer.step()
         self.autoencoder_optimizer.zero_grad()
-        if verbose:
-            print("Autoencoder Stepped")
+        print("Autoencoder Stepped")
 
         return loss.item()
 
 
-    def one_step_train_stable_diffusion(self, memory_latent, prompt, verbose = False):
+    def one_step_train_stable_diffusion(self, memory_latent, prompt):
         _, frames, _, height, width = memory_latent.shape
         
         random_frame = random.randint(0, frames - 1)
@@ -553,14 +551,12 @@ class Diffusion_Video_Model(nn.Module):
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
         loss = self.criterion(predicted_noise, added_noise)
-        if verbose:
-            print("Stable Diffusion Loss = " + str(loss.item()))
+        print("Stable Diffusion Loss = " + str(loss.item()))
 
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
-        if verbose:
-            print("Stable Diffusion Stepped")
+        print("Stable Diffusion Stepped")
 
         return loss.item()
 
@@ -596,7 +592,7 @@ class Diffusion_Video_Model(nn.Module):
         for _ in range(100):
             random_index = random.randint(0, 31)
             batch_frames = batch_video[random_index * 4:random_index * 4 + 4]
-            loss = self.one_step_train_auto_encoder(batch_frames, True)
+            loss = self.one_step_train_auto_encoder(batch_frames)
             losses.append(loss)
             torch.cuda.empty_cache()
             print(
@@ -646,7 +642,7 @@ class Diffusion_Video_Model(nn.Module):
         memory_latent = torch.cat(memory_latent).unsqueeze(0)
 
         for _ in range(100):
-            loss = self.one_step_train_stable_diffusion(memory_latent, prompt, True)
+            loss = self.one_step_train_stable_diffusion(memory_latent, prompt)
             losses.append(loss)
             torch.cuda.empty_cache()
 
