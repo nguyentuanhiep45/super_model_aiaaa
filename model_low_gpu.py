@@ -37,6 +37,22 @@ def show_image(integer_tensor_image):
     plt.axis('off')
     plt.show()
 
+def print_memory_information():
+    print(
+        "Current CPU RAM Usage : " + 
+        str(ps.virtual_memory().used / 1024 ** 3) + 
+        " / " + 
+        str(ps.virtual_memory().total / 1024 ** 3) +
+        " GB"
+    )
+    print(
+        "Current GPU RAM Usage : " + 
+        str(torch.cuda.memory_allocated(0) / 1024 ** 3) + 
+        " / " + 
+        str(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3) +
+        " GB"
+    )
+
 class Diffusion_First_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -422,6 +438,9 @@ class Diffusion_Video_Model(nn.Module):
 
         memory_latent = self.latent_attention(memory_latent)
 
+        print("Memory Latent Attention done!")
+        print("UNET downward...")
+
         S = []
         for i in range(2, 14):
             if type(self.forward_diffusion_layer[i]) == nn.Conv2d:
@@ -434,9 +453,11 @@ class Diffusion_Video_Model(nn.Module):
                 latent = self.forward_diffusion_layer[i](latent, context, memory_latent)
             S.append(latent)
 
+        print("Inside bottleneck...")
         latent, time_encoding = self.forward_diffusion_layer[14](latent, time_encoding, context, memory_latent)
         latent, time_encoding = self.forward_diffusion_layer[15](latent, time_encoding)
 
+        print("UNET upward...")
         i = 16
         while i <= 42:
             latent = torch.cat((latent, S.pop()), 1)
@@ -517,6 +538,7 @@ class Diffusion_Video_Model(nn.Module):
         random_frame = random.randint(0, frames - 1)
         # (1, 16, 64, 96)
         chosen_latent = memory_latent[:, random_frame]
+        print("Chosing latent done!")
 
         random_time = random.randint(0, 999)
         time_embedding = time_encoder(320, random_time).reshape(1, 320).to(self.device)
@@ -527,6 +549,7 @@ class Diffusion_Video_Model(nn.Module):
             self.A[random_time] ** 0.5 * chosen_latent + \
             (1 - self.A[random_time]) ** 0.5 * added_noise
         
+        print("Add noise done!")
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
         token_sentences = torch.tensor(BPE_tokenizer.batch_encode_plus(
             prompt, padding = "max_length", max_length = 1000
@@ -538,6 +561,8 @@ class Diffusion_Video_Model(nn.Module):
             0.5 * positional_encoder((1000, 768), 2000).to(self.device)
         )
 
+        print("Text processing done!")
+
 
         # (1, 23, 16, 64, 96)
         previous_latent = torch.cat((
@@ -548,6 +573,8 @@ class Diffusion_Video_Model(nn.Module):
         previous_latent = self.latent_tokenize(
             previous_latent.reshape(-1, 16, height // 8, width // 8)
         ).reshape(1, -1, 64)
+
+        print("Previous latent has been calculated!")
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
         loss = self.criterion(predicted_noise, added_noise)
@@ -595,20 +622,7 @@ class Diffusion_Video_Model(nn.Module):
             loss = self.one_step_train_auto_encoder(batch_frames)
             losses.append(loss)
             torch.cuda.empty_cache()
-            print(
-                "Current CPU RAM Usage : " + 
-                str(ps.virtual_memory().used / 1024 ** 3) + 
-                " / " + 
-                str(ps.virtual_memory().total / 1024 ** 3) +
-                " GB"
-            )
-            print(
-                "Current GPU RAM Usage : " + 
-                str(torch.cuda.memory_allocated(0) / 1024 ** 3) + 
-                " / " + 
-                str(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3) +
-                " GB"
-            )
+            print_memory_information()
 
         return sum(losses) / len(losses)
     
@@ -616,7 +630,8 @@ class Diffusion_Video_Model(nn.Module):
         _, frames = configuration_at_time_step(time_step)
         resolution = time_step % 6
         if resolution == 0:
-            resolution = [512, 384]
+            # change this shit to 512 384
+            resolution = [256, 256]
         elif resolution == 1:
             resolution = [768, 512]
         elif resolution == 2:
@@ -637,21 +652,26 @@ class Diffusion_Video_Model(nn.Module):
         video_generator.release()
         # (64, 3, 512, 768)
         video = (torch.stack(video) / 255. * 2 - 1).to(self.device)
+        print("Video has been readed!")
         with open("videos/description0.txt") as df:
             prompt.append(df.read())
+        print("Prompt has been readed!")
 
         memory_latent = []
         with torch.no_grad():
             for i in range(frames // 4):
                 memory_latent.append(self.encode_layer(video[i:i + 4]))
+                print("Encode chunk " + str(i))
 
         # (1, 64, 16, 64, 96)
         memory_latent = torch.cat(memory_latent).unsqueeze(0)
+        print("Encoding done!")
 
         for _ in range(100):
             loss = self.one_step_train_stable_diffusion(memory_latent, prompt)
             losses.append(loss)
             torch.cuda.empty_cache()
+            print_memory_information()
 
         return sum(losses) / len(losses)
     
