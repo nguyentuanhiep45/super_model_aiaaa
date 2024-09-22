@@ -665,7 +665,7 @@ class Diffusion_Video_Model(nn.Module):
 
         # (1, 64, 16, 64, 96)
         memory_latent = torch.cat(memory_latent).unsqueeze(0)
-        print("Encoding done!")
+        print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
 
         for _ in range(100):
             loss = self.one_step_train_stable_diffusion(memory_latent, prompt)

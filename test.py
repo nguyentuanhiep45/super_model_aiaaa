@@ -1,9 +1,6 @@
 from function_low_gpu import Modified_Multiply
 import torch
 
-a = 15.6
-b = torch.randn(3, 4, requires_grad = True)
-c = a * b
+a = torch.randn(3, 4, 5)
 
-d = c.sum()
-print(c)
+print(str(a.shape) + "ggnore")
