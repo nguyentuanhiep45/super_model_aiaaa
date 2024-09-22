@@ -142,13 +142,15 @@ class Decoder_Unit(nn.Module):
 
     def forward(self, latent):
         residue = latent
-        latent = self.decoder_unit_layer[0](latent)
-        latent = func.silu(latent)
-        latent = self.decoder_unit_layer[1](latent)
-        latent = self.decoder_unit_layer[2](latent)
-        latent = func.silu(latent)
+        latent = one_input_forward(self.decoder_unit_layer[0], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.decoder_unit_layer[1], latent)
+        latent = one_input_forward(self.decoder_unit_layer[2], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.decoder_unit_layer[3], latent)
+        latent = latent + one_input_forward(self.decoder_unit_layer[4], residue)
 
-        return self.decoder_unit_layer[3](latent) + self.decoder_unit_layer[4](residue)
+        return latent
 
 class Token_Processing_Unit(nn.Module):
     def __init__(self, embed_dim, n_head):
@@ -226,19 +228,15 @@ class VAE(nn.Module):
 
     def forward(self, x):
         for i in range(3):
-            x = one_input_forward(self.VAE_layer[i], x)
-        x = func.pad(x, [0, 1, 0, 1])
+            x = one_input_forward(self.VAE_layer[i * 3], x)
+            x = self.VAE_layer[i * 3 + 1](x)
+            x = self.VAE_layer[i * 3 + 2](x)
+            x = func.pad(x, [0, 1, 0, 1])
 
-        for i in range(3, 6):
-            x = one_input_forward(self.VAE_layer[i], x)
-        x = func.pad(x, [0, 1, 0, 1])
-
-        for i in range(6, 9):
-            x = one_input_forward(self.VAE_layer[i], x)
-        x = func.pad(x, [0, 1, 0, 1])
-
-        for i in range(9, 13):
-            x = one_input_forward(self.VAE_layer[i], x)
+        x = one_input_forward(self.VAE_layer[9], x)
+        x = self.VAE_layer[10](x)
+        x = self.VAE_layer[11](x)
+        x = self.VAE_layer[12](x)
 
         residue = x
         x = one_input_forward(self.VAE_layer[13], x)
@@ -249,7 +247,7 @@ class VAE(nn.Module):
         x = x.reshape(-1, 512, h, w) + residue
 
 
-        x = one_input_forward(self.VAE_layer[15], x)
+        x = self.VAE_layer[15](x)
         x = one_input_forward(self.VAE_layer[16], x)
         x = one_input_forward(func.silu, x)
         x = one_input_forward(self.VAE_layer[17], x)
@@ -374,8 +372,9 @@ class Diffusion_Video_Model(nn.Module):
         self.stable_diffusion_criterion = nn.MSELoss()
 
     def decode(self, latent):
-        for i in range(3):
-            latent = one_input_forward(self.decode_layer[i], latent)
+        latent = one_input_forward(self.decode_layer[0], latent)
+        latent = one_input_forward(self.decode_layer[1], latent)
+        latent = self.decode_layer[2](latent)
 
         residue = latent
         latent = one_input_forward(self.decode_layer[3], latent)
@@ -385,7 +384,10 @@ class Diffusion_Video_Model(nn.Module):
         latent = latent.reshape(-1, 512, h, w) + residue
 
         for i in range(5, 25):
-            latent = one_input_forward(self.decode_layer[i], latent)
+            if isinstance(self.decode_layer[i], Decoder_Unit):
+                latent = self.decode_layer[i](latent)
+            else:
+                latent = one_input_forward(self.decode_layer[i], latent)
 
         latent = one_input_forward(func.silu, latent)
         return one_input_forward(self.decode_layer[25], latent)

@@ -48,6 +48,7 @@ class Three_Input_Call(torch.autograd.Function):
         print("forward : " + context.name_1)
         print("forward : " + context.name_2)
         print("forward : " + context.name_3)
+        print(module.net)
 
         torch.cuda.empty_cache()
         return module.net(input_tensor_1, input_tensor_2, input_tensor_3)[0]
