@@ -22,10 +22,7 @@ class One_Input_Call(torch.autograd.Function):
         
     def backward(context, output_gradient):
         input_tensor = torch.load(context.name, weights_only = True)
-        print(context.name)
         os.remove(context.name)
-        print("remove success")
-        a = None * 2
         with torch.enable_grad():
             output_tensor = context.module(input_tensor)
             output_tensor.backward(output_gradient)
@@ -49,9 +46,14 @@ class Three_Input_Call(torch.autograd.Function):
         input_tensor_1 = torch.load(context.name_1, weights_only = True)
         input_tensor_2 = torch.load(context.name_2, weights_only = True)
         input_tensor_3 = torch.load(context.name_3, weights_only = True)
+        print(context.name_1)
+        print(context.name_2)
+        print(context.name_3)
         os.remove(context.name_1)
         os.remove(context.name_2)
         os.remove(context.name_3)
+        print("succ")
+        a = None * 2
         with torch.enable_grad():
             output_tensor = context.module(input_tensor_1, input_tensor_2, input_tensor_3)[0]
             output_tensor.backward(output_gradient)
