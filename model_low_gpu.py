@@ -563,19 +563,14 @@ class Diffusion_Video_Model(nn.Module):
 
         print("Text processing done, context tensor shape is " + str(context.shape))
 
-        #remove this hsit
-        print(torch.zeros(1, 1, 16, height // 8, width // 8, device = self.device).shape)
-        print(memory_latent[:, :random_frame].shape)
-        a = None * 2
-
         # (1, 23, 16, 64, 96)
         previous_latent = torch.cat((
-            torch.zeros(1, 1, 16, height // 8, width // 8, device = self.device), 
+            torch.zeros(1, 1, 16, height, width, device = self.device), 
             memory_latent[:, :random_frame]
         ), 1)
         # (23, 24, 64)
         previous_latent = self.latent_tokenize(
-            previous_latent.reshape(-1, 16, height // 8, width // 8)
+            previous_latent.reshape(-1, 16, height, width)
         ).reshape(1, -1, 64)
         torch.cuda.empty_cache()
         print("Previous latent has been calculated, its shape is " + str(previous_latent.shape))
