@@ -504,6 +504,8 @@ class Diffusion_Video_Model(nn.Module):
         loss.backward()
         self.autoencoder_optimizer.step()
         self.autoencoder_optimizer.zero_grad()
+        if verbose:
+            print("Autoencoder Stepped")
 
         return loss.item()
 
@@ -554,6 +556,8 @@ class Diffusion_Video_Model(nn.Module):
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+        if verbose:
+            print("Stable Diffusion Stepped")
 
         return loss.item()
 
@@ -592,6 +596,7 @@ class Diffusion_Video_Model(nn.Module):
             loss = self.one_step_train_auto_encoder(batch_frames, True)
             losses.append(loss)
             torch.cuda.empty_cache()
+            a = None * 2
 
         return sum(losses) / len(losses)
     
