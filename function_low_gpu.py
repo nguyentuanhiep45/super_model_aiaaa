@@ -19,7 +19,7 @@ class One_Input_Call(torch.autograd.Function):
         context.module = module.net
         context.name = os.path.join("computational_graph", generate_tensor_file_name())
         print("forward : " + context.name)
-        print(module)
+        print(module.net)
         torch.save(input_tensor, context.name)
         torch.cuda.empty_cache()
         return module.net(input_tensor)
