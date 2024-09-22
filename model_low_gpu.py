@@ -673,7 +673,7 @@ class Diffusion_Video_Model(nn.Module):
         # memory_latent = torch.cat(memory_latent).unsqueeze(0)
 
         # remove this shit
-        memory_latent = torch.randn(1, 64, 16, 64, 96, device = self.device)
+        memory_latent = torch.randn(1, 64, 16, 32, 32, device = self.device)
 
         torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
