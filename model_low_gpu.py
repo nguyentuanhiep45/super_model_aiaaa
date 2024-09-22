@@ -538,7 +538,7 @@ class Diffusion_Video_Model(nn.Module):
         random_frame = random.randint(0, frames - 1)
         # (1, 16, 64, 96)
         chosen_latent = memory_latent[:, random_frame]
-        print("Chosing latent done!")
+        print("Chosing latent done, latent shape is " + str(chosen_latent.shape))
 
         random_time = random.randint(0, 999)
         time_embedding = time_encoder(320, random_time).reshape(1, 320).to(self.device)
@@ -561,7 +561,7 @@ class Diffusion_Video_Model(nn.Module):
             0.5 * positional_encoder((1000, 768), 2000).to(self.device)
         )
 
-        print("Text processing done!")
+        print("Text processing done, context tensor shape is " + str(context.shape))
 
 
         # (1, 23, 16, 64, 96)
@@ -573,8 +573,8 @@ class Diffusion_Video_Model(nn.Module):
         previous_latent = self.latent_tokenize(
             previous_latent.reshape(-1, 16, height // 8, width // 8)
         ).reshape(1, -1, 64)
-
-        print("Previous latent has been calculated!")
+        torch.cuda.empty_cache()
+        print("Previous latent has been calculated, its shape is " + str(previous_latent.shape))
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
         loss = self.criterion(predicted_noise, added_noise)
