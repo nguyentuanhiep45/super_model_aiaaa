@@ -382,7 +382,7 @@ class Diffusion_Video_Model(nn.Module):
             1e-4
         )
         self.autoencoder_criterion = nn.MSELoss()
-        self.stable_diffusion_optimizer = optim.Adam(
+        self.stable_diffusion_optimizer = optim.SGD(
             list(self.text_embedding_layer.parameters()) + 
             list(self.text_processing_layer.parameters()) +
             list(self.forward_diffusion_layer.parameters()) +
@@ -585,8 +585,10 @@ class Diffusion_Video_Model(nn.Module):
         print("Stable Diffusion Backwarded Successfully!")
 
         self.stable_diffusion_optimizer.step()
-        self.stable_diffusion_optimizer.zero_grad()
         print("Stable Diffusion Stepped")
+
+        self.stable_diffusion_optimizer.zero_grad()
+        print("Stable Diffusion Gradient Reset")
 
         return loss.item()
 
