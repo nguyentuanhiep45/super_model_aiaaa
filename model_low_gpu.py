@@ -186,7 +186,9 @@ class Token_Processing_Unit(nn.Module):
     def forward(self, x, mask = None):
         residue = x
         x = one_input_forward(self.token_processing_unit_layer[0], x)
-        x = four_input_forward(self.token_processing_unit_layer[1], x, x, x, mask)
+        if mask != None:
+            x = four_input_forward(self.token_processing_unit_layer[1], x, x, x, mask)
+        else: x = three_input_forward(self.token_processing_unit_layer[1], x, x, x)
         x = x + residue
         
         residue = x
