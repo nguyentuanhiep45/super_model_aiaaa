@@ -34,7 +34,7 @@ print("Started to train stable diffusion...")
 for time_step in range(1000000):
     if  exist_video():
         delete_video()
-    download_video(time_step)
+    download_video(time_step, "Stable Diffusion")
 
     loss = model.train_stable_diffusion(time_step)
     print("Time step " + str(time_step) + ": Stable Diffusion Loss = " + str(loss))
