@@ -19,8 +19,7 @@ class One_Input_Call(torch.autograd.Function):
         context.module = module.net
         context.name = os.path.join("computational_graph", generate_tensor_file_name())
         print("forward : " + context.name)
-        if context.name[-10:] == "0K2zna9iNE":
-            print(module)
+        print(module)
         torch.save(input_tensor, context.name)
         torch.cuda.empty_cache()
         return module.net(input_tensor)
