@@ -45,6 +45,6 @@ print("Started inference...")
 batch_video, _ = model.infer([
     "I eat shit",
     "I eat cock"
-], (32, 32), 10)
+], (64, 96), 10)
 
 show_image(batch_video[0][0])

@@ -507,7 +507,7 @@ class Diffusion_Video_Model(nn.Module):
                 latent = torch.randn(batch_size, 16, h, w, device = self.device)
 
                 # change this shit to 0
-                for t in range(980, 940, -20):
+                for t in range(980, 0, -20):
                     time_embedding = time_encoder(320, t).reshape(1, 320).to(self.device)
                     predicted_noise = self.latent_processing(latent, context, time_embedding, memory_latent)
 
@@ -523,6 +523,7 @@ class Diffusion_Video_Model(nn.Module):
                 video.append(((self.decode(latent) + 1) * 255 / 2).to("cpu", dtype = torch.int32).clamp(0, 255))
                 debug_information.append(self.decode(latent))
 
+        # video là list chứa frame phần tử, mỗi phần tử là 1 batch các frame
         return (video, debug_information)
     
     def one_step_train_auto_encoder(self, batch_frames):
