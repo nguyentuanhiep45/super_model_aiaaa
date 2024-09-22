@@ -566,8 +566,7 @@ class Diffusion_Video_Model(nn.Module):
     def train_auto_encoder(self, time_step):
         resolution = time_step % 6
         if resolution == 0:
-            # change this shit to 512 384
-            resolution = [256, 256]
+            resolution = [512, 384]
         elif resolution == 1:
             resolution = [768, 512]
         elif resolution == 2:
