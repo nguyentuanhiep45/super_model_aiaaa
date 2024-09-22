@@ -358,8 +358,20 @@ class Diffusion_Video_Model(nn.Module):
 
         self.encode_layer = VAE()
 
-        self.optimizer = optim.Adam(self.parameters(), lr = 1e-4)
-        self.criterion = nn.MSELoss()
+        self.autoencoder_optimizer = optim.Adam(
+            list(self.encode_layer.parameters()) + list(self.decode_layer.parameters()),
+            1e-4
+        )
+        self.autoencoder_criterion = nn.MSELoss()
+        self.stable_diffusion_optimizer = optim.Adam(
+            list(self.text_embedding_layer.parameters()) + 
+            list(self.text_processing_layer.parameters()) +
+            list(self.forward_diffusion_layer.parameters()) +
+            list(self.latent_tokenize_layer.parameters()) +
+            list(self.memory_latent_processing_layer.parameters()),
+            1e-4
+        )
+        self.stable_diffusion_criterion = nn.MSELoss()
 
     def decode(self, latent):
         for i in range(3):
@@ -442,10 +454,9 @@ class Diffusion_Video_Model(nn.Module):
         predicted_noise = self.forward_diffusion_layer[44](latent)
         return predicted_noise
 
-    # latent = (B, 16, 64, 96) => (B, 1, 16 * 64 * 96) => (B, 64, 24) => (B, 24, 64)
-    # previous_latent = (B * 23, 16, 64, 96) => (B * 23, 1, 16 * 64 * 96) => (B * 23, 64, 24) => (B * 23, 24, 64)
-    def latent_tokenize(self, latent):
-        return self.latent_tokenize_layer(latent.reshape(latent.shape[0], 1, -1)).permute(0, 2, 1)
+    # previous_latent = (23, 16, 64, 96) => (23, 1, 16 * 64 * 96) => (23, 64, 24) => (23, 24, 64)
+    def latent_tokenize(self, previous_latent):
+        return self.latent_tokenize_layer(previous_latent.reshape(previous_latent.shape[0], 1, -1)).permute(0, 2, 1)
 
     def infer(self, prompts, latent_shape, frames):
         batch_size = len(prompts)
@@ -485,54 +496,29 @@ class Diffusion_Video_Model(nn.Module):
 
         return (video, debug_information)
     
-    # batch video (B, 64 frame, 3, 512, 768), giá trị 0 255 đã bị map thành -1, 1
-    def one_step_train_auto_encoder(self, batch_video, verbose = False):
-        batch_size, frames, _, height, width = batch_video.shape
-        batch_frames = batch_video.reshape(batch_size * frames, 3, height, width)
-
-        random_index = random.randint(0, batch_size * frames // 2 - 1)
-        random_frame = batch_frames[random_index * 2:random_index * 2 + 2]
-        loss = self.criterion(self.decode(self.encode_layer(random_frame)), random_frame)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-
+    def one_step_train_auto_encoder(self, batch_frames, verbose = False):
+        loss = self.autoencoder_criterion(self.decode(self.encode_layer(batch_frames)), batch_frames)
         if verbose:
             print("Autoencoder Loss = " + str(loss.item()))
+
+        loss.backward()
+        self.autoencoder_optimizer.step()
+        self.autoencoder_optimizer.zero_grad()
 
         return loss.item()
 
 
-    def one_step_train_stable_diffusion(self, batch_video, batch_prompt):
-        batch_size, frames, _, height, width = batch_video.shape
-        h = height // 8
-        w = width // 8
-        batch_frames = batch_video.reshape(batch_size * frames, 3, height, width)
-
-        # gồm B * 64 / 4 khúc, mỗi khúc (4, 3, 64, 96)
-        memory_latent = []
-        with torch.no_grad():
-            for i in range(batch_size * frames // 4):
-                memory_latent.append(self.encode_layer(batch_frames[i:i + 4]))
-
-        # (B * 64, 16, 64, 96)
-        memory_latent = torch.cat(memory_latent)
-
+    def one_step_train_stable_diffusion(self, memory_latent, prompt, verbose = False):
+        _, frames, _, height, width = memory_latent.shape
+        
         random_frame = random.randint(0, frames - 1)
+        # (1, 16, 64, 96)
+        chosen_latent = memory_latent[:, random_frame]
+
         random_time = random.randint(0, 999)
         time_embedding = time_encoder(320, random_time).reshape(1, 320).to(self.device)
 
-
-        # shape (B, 16, 64, 96)
-        chosen_latent = memory_latent[:, random_frame]
-
-        # shape (B, 23, 16, 64, 96)
-        previous_latent = torch.cat((
-            torch.zeros(batch_size, 1, 16, h, w, device = self.device), 
-            memory_latent[:, :random_frame]
-        ), 1)
-
-        # shape (B, 16, 64, 96)
+        # shape (1, 16, 64, 96)
         added_noise = torch.randn(chosen_latent.shape, device = self.device)
         noise_latent = \
             self.A[random_time] ** 0.5 * chosen_latent + \
@@ -540,20 +526,30 @@ class Diffusion_Video_Model(nn.Module):
         
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
         token_sentences = torch.tensor(BPE_tokenizer.batch_encode_plus(
-            batch_prompt, padding = "max_length", max_length = 1000
+            prompt, padding = "max_length", max_length = 1000
         ).input_ids, device = self.device)
 
-        text_embedding = self.text_embedding_layer(token_sentences) + 0.5 * positional_encoder((1000, 768), 2000).to(self.device)
-        
-        # shape (B, 1000, 768)
-        context = self.text_processing(text_embedding)
+        # shape (1, 1000, 768)
+        context = self.text_processing(
+            self.text_embedding_layer(token_sentences) + 
+            0.5 * positional_encoder((1000, 768), 2000).to(self.device)
+        )
 
 
-        # (B * 23, 24, 64)
-        previous_latent = self.latent_tokenize(previous_latent.reshape(-1, 16, h, w)).reshape(batch_size, -1, 64)
+        # (1, 23, 16, 64, 96)
+        previous_latent = torch.cat((
+            torch.zeros(1, 1, 16, height // 8, width // 8, device = self.device), 
+            memory_latent[:, :random_frame]
+        ), 1)
+        # (23, 24, 64)
+        previous_latent = self.latent_tokenize(
+            previous_latent.reshape(-1, 16, height // 8, width // 8)
+        ).reshape(1, -1, 64)
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
         loss = self.criterion(predicted_noise, added_noise)
+        if verbose:
+            print("Stable Diffusion Loss = " + str(loss.item()))
 
         loss.backward()
         self.optimizer.step()
@@ -561,8 +557,7 @@ class Diffusion_Video_Model(nn.Module):
 
         return loss.item()
 
-    def train(self, time_step):
-        _, _, frames = configuration_at_time_step(time_step)
+    def train_auto_encoder(self, time_step):
         resolution = time_step % 6
         if resolution == 0:
             resolution = [512, 384]
@@ -578,27 +573,67 @@ class Diffusion_Video_Model(nn.Module):
             resolution = [1920, 1280]
 
         batch_video = []
-        batch_prompt = []
         losses = []
 
         for f in os.listdir("videos"):
-            if f.startswith("video"):
-                curent_video = []
-                video_generator = cv.VideoCapture(os.path.join("videos", f))
-                for _ in range(frames):
-                    curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
-                video_generator.release()
-                # (64, 3, 512, 768)
-                batch_video.append(torch.stack(curent_video))
-                with open("videos/description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
-                    batch_prompt.append(df.read())
-        # (B, 64, 3, 512, 768)
-        batch_video = torch.stack(batch_video).to(self.device) / 255. * 2 - 1
+            curent_video = []
+            video_generator = cv.VideoCapture(os.path.join("videos", f))
+            for _ in range(64):
+                curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
+            video_generator.release()
+            batch_video.append(torch.stack(curent_video))
+  
+        # (128, 3, 512, 768)
+        batch_video = torch.cat(batch_video).to(self.device) / 255. * 2 - 1
 
         for _ in range(100):
-            loss_1 = self.one_step_train_auto_encoder(batch_video, True)
-            loss_2 = self.one_step_train_stable_diffusion(batch_video, batch_prompt)
-            losses.append(loss_1 + loss_2)
+            random_index = random.randint(0, 31)
+            batch_frames = batch_video[random_index * 4:random_index * 4 + 4]
+            loss = self.one_step_train_auto_encoder(batch_frames, True)
+            losses.append(loss)
+            torch.cuda.empty_cache()
+
+        return sum(losses) / len(losses)
+    
+    def train_stable_diffusion(self, time_step):
+        _, frames = configuration_at_time_step(time_step)
+        resolution = time_step % 6
+        if resolution == 0:
+            resolution = [512, 384]
+        elif resolution == 1:
+            resolution = [768, 512]
+        elif resolution == 2:
+            resolution = [1024, 640]
+        elif resolution == 3:
+            resolution = [1408, 896]
+        elif resolution == 4:
+            resolution = [1664, 1024]
+        elif resolution == 5:
+            resolution = [1920, 1280]
+
+        losses = []
+        video = []
+        prompt = []
+        video_generator = cv.VideoCapture("videos/video0.mp4")
+        for _ in range(frames):
+            video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
+        video_generator.release()
+        # (64, 3, 512, 768)
+        video = (torch.stack(video) / 255. * 2 - 1).to(self.device)
+        with open("videos/description0.txt") as df:
+            prompt.append(df.read())
+
+        memory_latent = []
+        with torch.no_grad():
+            for i in range(frames // 4):
+                memory_latent.append(self.encode_layer(video[i:i + 4]))
+
+        # (1, 64, 16, 64, 96)
+        memory_latent = torch.cat(memory_latent).unsqueeze(0)
+
+        for _ in range(100):
+            loss = self.one_step_train_stable_diffusion(memory_latent, prompt, True)
+            losses.append(loss)
             torch.cuda.empty_cache()
 
         return sum(losses) / len(losses)

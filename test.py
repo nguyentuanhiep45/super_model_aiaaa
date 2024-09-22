@@ -5,9 +5,14 @@ from torch import nn
 from torchviz import make_dot
 
 a = torch.randn(2, 4)
-ggnore, ggnora = a
-ggnore[0] = 100
+op = torch.optim.Adam([a], lr = 0.1)
+b = a.sum()
+b.backward()
+
+op.step()
+
 print(a)
+print(a.grad)
 # class multiplus(torch.autograd.Function):
 #     def forward(context, input1, input2):
 #         context.save_for_backward(input1, input2)
