@@ -665,6 +665,7 @@ class Diffusion_Video_Model(nn.Module):
 
         # (1, 64, 16, 64, 96)
         memory_latent = torch.cat(memory_latent).unsqueeze(0)
+        torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
 
         for _ in range(100):
