@@ -580,8 +580,8 @@ class Diffusion_Video_Model(nn.Module):
         print("Stable Diffusion Loss = " + str(loss.item()))
 
         loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        self.stable_diffusion_optimizer.step()
+        self.stable_diffusion_optimizer.zero_grad()
         print("Stable Diffusion Stepped")
 
         return loss.item()
