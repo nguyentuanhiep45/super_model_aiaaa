@@ -15,6 +15,6 @@ if exist_model():
 batch_video, _ = model.infer([
     "I eat shit",
     "I eat cock"
-], (64, 96), 10)
+], (32, 32), 10)
 
 show_image(batch_video[0][0])

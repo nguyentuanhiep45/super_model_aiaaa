@@ -4,7 +4,8 @@ import string
 import random
 import os
 
-random.seed(0)
+# thay thành false khi infer
+is_training = False
 
 def generate_tensor_file_name():
     while True:
@@ -20,7 +21,8 @@ class One_Input_Call(torch.autograd.Function):
         context.name = os.path.join("computational_graph", generate_tensor_file_name())
         print("forward : " + context.name[-10:])
         print(module.net)
-        torch.save(input_tensor, context.name)
+        if is_training:
+            torch.save(input_tensor, context.name)
         torch.cuda.empty_cache()
         return module.net(input_tensor)
         
