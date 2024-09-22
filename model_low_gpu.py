@@ -563,6 +563,11 @@ class Diffusion_Video_Model(nn.Module):
 
         print("Text processing done, context tensor shape is " + str(context.shape))
 
+        #remove this hsit
+        print(height // 8)
+        print(width // 8)
+        print(memory_latent[:, :random_frame].shape)
+        a = None * 2
 
         # (1, 23, 16, 64, 96)
         previous_latent = torch.cat((
@@ -657,14 +662,19 @@ class Diffusion_Video_Model(nn.Module):
             prompt.append(df.read())
         print("Prompt has been readed!")
 
-        memory_latent = []
-        with torch.no_grad():
-            for i in range(frames // 4):
-                memory_latent.append(self.encode_layer(video[i:i + 4]))
-                print("Encode chunk " + str(i))
+        # restore this shit
+        # memory_latent = []
+        # with torch.no_grad():
+        #     for i in range(frames // 4):
+        #         memory_latent.append(self.encode_layer(video[i:i + 4]))
+        #         print("Encode chunk " + str(i))
 
-        # (1, 64, 16, 64, 96)
-        memory_latent = torch.cat(memory_latent).unsqueeze(0)
+        # # (1, 64, 16, 64, 96)
+        # memory_latent = torch.cat(memory_latent).unsqueeze(0)
+
+        # remove this shit
+        memory_latent = torch.randn(1, 64, 16, 64, 96, device = self.device)
+
         torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
 
