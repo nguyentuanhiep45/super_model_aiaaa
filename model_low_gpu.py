@@ -549,7 +549,7 @@ class Diffusion_Video_Model(nn.Module):
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
         loss = self.criterion(predicted_noise, added_noise)
         if verbose:
-            print("Stable Diffusion Loss = " + str(loss.item()))
+            print("Stable Diffusion Losss = " + str(loss.item()))
 
         loss.backward()
         self.optimizer.step()
