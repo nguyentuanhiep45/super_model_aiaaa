@@ -22,7 +22,10 @@ class One_Input_Call(torch.autograd.Function):
         
     def backward(context, output_gradient):
         input_tensor = torch.load(context.name, weights_only = True)
+        print(context.name)
         os.remove(context.name)
+        print("remove success")
+        a = None * 2
         with torch.enable_grad():
             output_tensor = context.module(input_tensor)
             output_tensor.backward(output_gradient)
