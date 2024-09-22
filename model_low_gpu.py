@@ -13,7 +13,7 @@ import re
 import gc
 import time
 import sys
-from function_low_gpu import one_input_forward, three_input_forward
+from function_low_gpu import one_input_forward, three_input_forward, four_input_forward, Modified_Multiply
 import psutil as ps
 
 def exist_model():
@@ -70,15 +70,17 @@ class Diffusion_First_Unit(nn.Module):
 
     def forward(self, latent, time_encoding):
         residue = latent
-        latent = self.diffusion_first_unit_layer[0](latent)
-        latent = func.silu(latent)
-        latent = self.diffusion_first_unit_layer[1](latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[0], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[1], latent)
 
-        time_encoding = func.silu(time_encoding)
-        latent = latent + self.diffusion_first_unit_layer[2](time_encoding).reshape(1, self.out_channels, 1, 1)
-        latent = self.diffusion_first_unit_layer[3](latent)
-        latent = func.silu(latent)
-        latent = self.diffusion_first_unit_layer[4](latent) + self.diffusion_first_unit_layer[5](residue)
+        time_encoding = one_input_forward(func.silu, time_encoding)
+        latent = latent + \
+                 one_input_forward(self.diffusion_first_unit_layer[2], time_encoding).reshape(1, self.out_channels, 1, 1)
+        latent = one_input_forward(self.diffusion_first_unit_layer[3], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[4], latent) + \
+                 one_input_forward(self.diffusion_first_unit_layer[5], residue)
 
         return (latent, time_encoding)
         
@@ -104,29 +106,29 @@ class Diffusion_Second_Unit(nn.Module):
 
     def forward(self, latent, context, memory_latent):
         residue_long = latent
-        latent = self.diffusion_second_unit_layer[0](latent)
-        latent = self.diffusion_second_unit_layer[1](latent)
+        latent = one_input_forward(self.diffusion_second_unit_layer[0], latent)
+        latent = one_input_forward(self.diffusion_second_unit_layer[1], latent)
         h, w = latent.shape[-2:]
         latent = latent.reshape(-1, h * w, self.out_channels)
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[2](latent)
-        latent = self.diffusion_second_unit_layer[3](latent, latent, latent)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[2], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[3], latent, latent, latent) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[4](latent)
-        latent = self.diffusion_second_unit_layer[5](latent, context, context)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[4], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[5], latent, context, context) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[6](latent)
-        latent = self.diffusion_second_unit_layer[7](latent, memory_latent, memory_latent)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[6], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[7], latent, memory_latent, memory_latent) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[8](latent)
-        latent, gate = self.diffusion_second_unit_layer[9](latent).chunk(2, -1)
-        latent = latent * func.gelu(gate)
-        latent = self.diffusion_second_unit_layer[10](latent) + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[8], latent)
+        latent, gate = one_input_forward(self.diffusion_second_unit_layer[9], latent).chunk(2, -1)
+        latent = Modified_Multiply.apply(latent, three_input_forward(func.gelu, gate))
+        latent = one_input_forward(self.diffusion_second_unit_layer[10], latent) + residue_short
         latent = latent.reshape(-1, self.out_channels, h, w)
-        latent = self.diffusion_second_unit_layer[11](latent) + residue_long
+        latent = one_input_forward(self.diffusion_second_unit_layer[11], latent) + residue_long
 
         return latent
 
@@ -183,15 +185,15 @@ class Token_Processing_Unit(nn.Module):
 
     def forward(self, x, mask = None):
         residue = x
-        x = self.token_processing_unit_layer[0](x)
-        x, _ = self.token_processing_unit_layer[1](x, x, x, attn_mask = mask)
+        x = one_input_forward(self.token_processing_unit_layer[0], x)
+        x = four_input_forward(self.token_processing_unit_layer[1], x, x, x, mask)
         x = x + residue
         
         residue = x
-        x = self.token_processing_unit_layer[2](x)
-        x = self.token_processing_unit_layer[3](x)
-        x = x * func.sigmoid(1.702 * x)
-        return self.token_processing_unit_layer[4](x) + residue
+        x = one_input_forward(self.token_processing_unit_layer[2], x)
+        x = one_input_forward(self.token_processing_unit_layer[3], x)
+        x = Modified_Multiply.apply(x, one_input_forward(func.sigmoid, 1.702 * x))
+        return one_input_forward(self.token_processing_unit_layer[4], x) + residue
 
 class VAE_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -417,7 +419,7 @@ class Diffusion_Video_Model(nn.Module):
         for i in range(12):
             x = self.text_processing_layer[i](x, mask)
 
-        return self.text_processing_layer[12](x)
+        return one_input_forward(self.text_processing_layer[12], x)
     
     def latent_attention(self, memory_latent):
         x = memory_latent
@@ -425,16 +427,16 @@ class Diffusion_Video_Model(nn.Module):
         for i in range(12):
             x = self.memory_latent_processing_layer[i](x)
 
-        return self.memory_latent_processing_layer[12](x)
+        return one_input_forward(self.memory_latent_processing_layer[12], x)
 
     def latent_processing(self, latent, context, time_embedding, memory_latent):
         if (type(memory_latent) == list):
             memory_latent = torch.cat(memory_latent, 1)
         memory_latent = memory_latent + 0.5 * positional_encoder((memory_latent.shape[1], 64), 50000).to(self.device)
 
-        time_encoding = self.forward_diffusion_layer[0](time_embedding)
-        time_encoding = func.silu(time_encoding)
-        time_encoding = self.forward_diffusion_layer[1](time_encoding)
+        time_encoding = one_input_forward(self.forward_diffusion_layer[0], time_embedding)
+        time_encoding = one_input_forward(func.silu, time_encoding)
+        time_encoding = one_input_forward(self.forward_diffusion_layer[1], time_encoding)
 
         memory_latent = self.latent_attention(memory_latent)
 
@@ -444,13 +446,11 @@ class Diffusion_Video_Model(nn.Module):
         S = []
         for i in range(2, 14):
             if type(self.forward_diffusion_layer[i]) == nn.Conv2d:
-                latent = self.forward_diffusion_layer[i](latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i], latent)
             elif type(self.forward_diffusion_layer[i]) == Diffusion_Unit:
                 latent, time_encoding = self.forward_diffusion_layer[i](latent, time_encoding, context, memory_latent)
             elif type(self.forward_diffusion_layer[i]) == Diffusion_First_Unit:
                 latent, time_encoding = self.forward_diffusion_layer[i](latent, time_encoding)
-            else:
-                latent = self.forward_diffusion_layer[i](latent, context, memory_latent)
             S.append(latent)
 
         print("Inside bottleneck...")
@@ -469,13 +469,13 @@ class Diffusion_Video_Model(nn.Module):
                 i += 1
 
             if i == 19 or i == 27 or i == 35:
-                latent = self.forward_diffusion_layer[i](latent)
-                latent = self.forward_diffusion_layer[i + 1](latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i], latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i + 1], latent)
                 i += 2
 
-        latent = self.forward_diffusion_layer[43](latent)
-        latent = func.silu(latent)
-        predicted_noise = self.forward_diffusion_layer[44](latent)
+        latent = one_input_forward(self.forward_diffusion_layer[43], latent)
+        latent = one_input_forward(func.silu, latent)
+        predicted_noise = one_input_forward(self.forward_diffusion_layer[44], latent)
         return predicted_noise
 
     # previous_latent = (23, 16, 64, 96) => (23, 1, 16 * 64 * 96) => (23, 64, 24) => (23, 24, 64)
@@ -557,7 +557,7 @@ class Diffusion_Video_Model(nn.Module):
 
         # shape (1, 1000, 768)
         context = self.text_processing(
-            self.text_embedding_layer(token_sentences) + 
+            one_input_forward(self.text_embedding_layer, token_sentences) + 
             0.5 * positional_encoder((1000, 768), 2000).to(self.device)
         )
 
