@@ -602,6 +602,13 @@ class Diffusion_Video_Model(nn.Module):
                 str(ps.virtual_memory().total / 1024 ** 3) +
                 " GB"
             )
+            print(
+                "Current GPU RAM Usage : " + 
+                str(torch.cuda.memory_allocated(0) / 1024 ** 3) + 
+                " / " + 
+                str(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3) +
+                " GB"
+            )
 
         return sum(losses) / len(losses)
     
