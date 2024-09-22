@@ -576,7 +576,7 @@ class Diffusion_Video_Model(nn.Module):
         print("Previous latent has been calculated, its shape is " + str(previous_latent.shape))
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
-        loss = self.criterion(predicted_noise, added_noise)
+        loss = self.stable_diffusion_criterion(predicted_noise, added_noise)
         print("Stable Diffusion Loss = " + str(loss.item()))
 
         loss.backward()
