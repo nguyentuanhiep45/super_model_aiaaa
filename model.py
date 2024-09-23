@@ -714,7 +714,7 @@ class Diffusion_Video_Model(nn.Module):
         print("Model has been saved successfully.")
 
     def load(self):
-        model = torch.load("drive/MyDrive/Video AI/model.ckpt")
+        model = torch.load("drive/MyDrive/Video AI/model.ckpt", weights_only = True)
         self.load_state_dict(model["params"])
         self.autoencoder_optimizer.load_state_dict(model["autoencoder_optimizer"])
         self.stable_diffusion_optimizer.load_state_dict(model["stable_diffusion_optimizer"])
