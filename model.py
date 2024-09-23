@@ -14,7 +14,7 @@ import psutil as ps
 import numpy as np
 
 def exist_model():
-    return os.path.isfile("model.ckpt")
+    return os.path.isfile("drive/MyDrive/Video AI/model.ckpt")
 
 # shape (số dòng, số cột) trả về => chu kỳ để dòng lặp lại = cycle dòng
 def positional_encoder(shape, cycle):
