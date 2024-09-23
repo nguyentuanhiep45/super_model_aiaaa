@@ -8,8 +8,9 @@ import random
 import os
 import cv2 as cv
 from video import configuration_at_time_step
-import numpy as np
-import re
+import function_low_gpu
+from function_low_gpu import one_input_forward, three_input_forward, four_input_forward, Modified_Multiply
+import psutil as ps
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -32,6 +33,29 @@ def show_image(integer_tensor_image):
     plt.axis('off')
     plt.show()
 
+def make_video(batch_video):
+    for i in range(batch_video[0].shape[0]):
+        video_generator = cv.VideoWriter("inference_video" + str(i) + ".mp4", 1983148141, 10, (512, 768))
+        for j in range(len(batch_video)):
+            video_generator.write(batch_video[j][i].permute(1, 2, 0).numpy())
+        video_generator.release()
+
+def print_memory_information():
+    print(
+        "Current CPU RAM Usage : " + 
+        str(ps.virtual_memory().used / 1024 ** 3) + 
+        " / " + 
+        str(ps.virtual_memory().total / 1024 ** 3) +
+        " GB"
+    )
+    print(
+        "Current GPU RAM Usage : " + 
+        str(torch.cuda.memory_allocated(0) / 1024 ** 3) + 
+        " / " + 
+        str(torch.cuda.get_device_properties(0).total_memory / 1024 ** 3) +
+        " GB"
+    )
+
 class Diffusion_First_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -49,18 +73,20 @@ class Diffusion_First_Unit(nn.Module):
 
     def forward(self, latent, time_encoding):
         residue = latent
-        latent = self.diffusion_first_unit_layer[0](latent)
-        latent = func.silu(latent)
-        latent = self.diffusion_first_unit_layer[1](latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[0], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[1], latent)
 
-        time_encoding = func.silu(time_encoding)
-        latent = latent + self.diffusion_first_unit_layer[2](time_encoding).reshape(1, self.out_channels, 1, 1)
-        latent = self.diffusion_first_unit_layer[3](latent)
-        latent = func.silu(latent)
-        latent = self.diffusion_first_unit_layer[4](latent) + self.diffusion_first_unit_layer[5](residue)
+        time_encoding = one_input_forward(func.silu, time_encoding)
+        latent = latent + \
+                 one_input_forward(self.diffusion_first_unit_layer[2], time_encoding).reshape(1, self.out_channels, 1, 1)
+        latent = one_input_forward(self.diffusion_first_unit_layer[3], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.diffusion_first_unit_layer[4], latent) + \
+                 one_input_forward(self.diffusion_first_unit_layer[5], residue)
 
         return (latent, time_encoding)
-
+        
 class Diffusion_Second_Unit(nn.Module):
     def __init__(self, out_channels):
         super().__init__()
@@ -83,29 +109,29 @@ class Diffusion_Second_Unit(nn.Module):
 
     def forward(self, latent, context, memory_latent):
         residue_long = latent
-        latent = self.diffusion_second_unit_layer[0](latent)
-        latent = self.diffusion_second_unit_layer[1](latent)
+        latent = one_input_forward(self.diffusion_second_unit_layer[0], latent)
+        latent = one_input_forward(self.diffusion_second_unit_layer[1], latent)
         h, w = latent.shape[-2:]
         latent = latent.reshape(-1, h * w, self.out_channels)
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[2](latent)
-        latent = self.diffusion_second_unit_layer[3](latent, latent, latent)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[2], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[3], latent, latent, latent) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[4](latent)
-        latent = self.diffusion_second_unit_layer[5](latent, context, context)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[4], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[5], latent, context, context) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[6](latent)
-        latent = self.diffusion_second_unit_layer[7](latent, memory_latent, memory_latent)[0] + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[6], latent)
+        latent = three_input_forward(self.diffusion_second_unit_layer[7], latent, memory_latent, memory_latent) + residue_short
 
         residue_short = latent
-        latent = self.diffusion_second_unit_layer[8](latent)
-        latent, gate = self.diffusion_second_unit_layer[9](latent).chunk(2, -1)
-        latent = latent * func.gelu(gate)
-        latent = self.diffusion_second_unit_layer[10](latent) + residue_short
+        latent = one_input_forward(self.diffusion_second_unit_layer[8], latent)
+        latent, gate = one_input_forward(self.diffusion_second_unit_layer[9], latent).chunk(2, -1)
+        latent = Modified_Multiply.apply(latent, one_input_forward(func.gelu, gate))
+        latent = one_input_forward(self.diffusion_second_unit_layer[10], latent) + residue_short
         latent = latent.reshape(-1, self.out_channels, h, w)
-        latent = self.diffusion_second_unit_layer[11](latent) + residue_long
+        latent = one_input_forward(self.diffusion_second_unit_layer[11], latent) + residue_long
 
         return latent
 
@@ -138,13 +164,15 @@ class Decoder_Unit(nn.Module):
 
     def forward(self, latent):
         residue = latent
-        latent = self.decoder_unit_layer[0](latent)
-        latent = func.silu(latent)
-        latent = self.decoder_unit_layer[1](latent)
-        latent = self.decoder_unit_layer[2](latent)
-        latent = func.silu(latent)
+        latent = one_input_forward(self.decoder_unit_layer[0], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.decoder_unit_layer[1], latent)
+        latent = one_input_forward(self.decoder_unit_layer[2], latent)
+        latent = one_input_forward(func.silu, latent)
+        latent = one_input_forward(self.decoder_unit_layer[3], latent)
+        latent = latent + one_input_forward(self.decoder_unit_layer[4], residue)
 
-        return self.decoder_unit_layer[3](latent) + self.decoder_unit_layer[4](residue)
+        return latent
 
 class Token_Processing_Unit(nn.Module):
     def __init__(self, embed_dim, n_head):
@@ -160,15 +188,17 @@ class Token_Processing_Unit(nn.Module):
 
     def forward(self, x, mask = None):
         residue = x
-        x = self.token_processing_unit_layer[0](x)
-        x, _ = self.token_processing_unit_layer[1](x, x, x, attn_mask = mask)
+        x = one_input_forward(self.token_processing_unit_layer[0], x)
+        if mask != None:
+            x = four_input_forward(self.token_processing_unit_layer[1], x, x, x, mask)
+        else: x = three_input_forward(self.token_processing_unit_layer[1], x, x, x)
         x = x + residue
         
         residue = x
-        x = self.token_processing_unit_layer[2](x)
-        x = self.token_processing_unit_layer[3](x)
-        x = x * func.sigmoid(1.702 * x)
-        return self.token_processing_unit_layer[4](x) + residue
+        x = one_input_forward(self.token_processing_unit_layer[2], x)
+        x = one_input_forward(self.token_processing_unit_layer[3], x)
+        x = Modified_Multiply.apply(x, one_input_forward(func.sigmoid, 1.702 * x))
+        return one_input_forward(self.token_processing_unit_layer[4], x) + residue
 
 class VAE_Unit(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -184,12 +214,14 @@ class VAE_Unit(nn.Module):
 
     def forward(self, x):
         residue = x
-        x = self.VAE_unit_layer[0](x)
-        x = func.silu(x)
-        x = self.VAE_unit_layer[1](x)
-        x = self.VAE_unit_layer[2](x)
-        x = func.silu(x)
-        return self.VAE_unit_layer[3](x) + self.VAE_unit_layer[4](residue)
+        x = one_input_forward(self.VAE_unit_layer[0], (x))
+        x = one_input_forward(func.silu, x)
+        x = one_input_forward(self.VAE_unit_layer[1], x)
+        x = one_input_forward(self.VAE_unit_layer[2], x)
+        x = one_input_forward(func.silu, x)
+        x = one_input_forward(self.VAE_unit_layer[3], x)
+        residue = one_input_forward(self.VAE_unit_layer[4], residue)
+        return x + residue
         
 class VAE(nn.Module):
     def __init__(self):
@@ -220,38 +252,36 @@ class VAE(nn.Module):
 
     def forward(self, x):
         for i in range(3):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
+            x = one_input_forward(self.VAE_layer[i * 3], x)
+            x = self.VAE_layer[i * 3 + 1](x)
+            x = self.VAE_layer[i * 3 + 2](x)
+            x = func.pad(x, [0, 1, 0, 1])
 
-        for i in range(3, 6):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
-
-        for i in range(6, 9):
-            x = self.VAE_layer[i](x)
-        x = func.pad(x, [0, 1, 0, 1])
-
-        for i in range(9, 13):
-            x = self.VAE_layer[i](x)
+        x = one_input_forward(self.VAE_layer[9], x)
+        x = self.VAE_layer[10](x)
+        x = self.VAE_layer[11](x)
+        x = self.VAE_layer[12](x)
 
         residue = x
-        x = self.VAE_layer[13](x)
+        x = one_input_forward(self.VAE_layer[13], x)
         h, w = x.shape[-2:]
         x = x.reshape(-1, h * w, 512)
-        x, _ = self.VAE_layer[14](x, x, x)
+
+        x = three_input_forward(self.VAE_layer[14], x, x, x)
         x = x.reshape(-1, 512, h, w) + residue
 
+
         x = self.VAE_layer[15](x)
-        x = self.VAE_layer[16](x)
-        x = func.silu(x)
-        x = self.VAE_layer[17](x)
-        x = self.VAE_layer[18](x)
+        x = one_input_forward(self.VAE_layer[16], x)
+        x = one_input_forward(func.silu, x)
+        x = one_input_forward(self.VAE_layer[17], x)
+        x = one_input_forward(self.VAE_layer[18], x)
 
         mean_tensor, log_variance_tensor = x.chunk(2, 1)
         std_tensor = log_variance_tensor.clamp(-30, 20).exp() ** 0.5
 
         return mean_tensor + std_tensor * torch.randn(mean_tensor.shape, device = self.device)
-
+        
 class Diffusion_Video_Model(nn.Module):
     def __init__(self):
         super().__init__()
@@ -350,25 +380,41 @@ class Diffusion_Video_Model(nn.Module):
 
         self.encode_layer = VAE()
 
-        self.optimizer = optim.Adam(self.parameters(), lr = 1e-4)
-        self.criterion = nn.MSELoss()
+        self.autoencoder_optimizer = optim.Adam(
+            list(self.encode_layer.parameters()) + list(self.decode_layer.parameters()),
+            1e-4
+        )
+        self.autoencoder_criterion = nn.MSELoss()
+        self.stable_diffusion_optimizer = optim.SGD(
+            list(self.text_embedding_layer.parameters()) + 
+            list(self.text_processing_layer.parameters()) +
+            list(self.forward_diffusion_layer.parameters()) +
+            list(self.latent_tokenize_layer.parameters()) +
+            list(self.memory_latent_processing_layer.parameters()),
+            1e-4
+        )
+        self.stable_diffusion_criterion = nn.MSELoss()
 
     def decode(self, latent):
-        for i in range(3):
-            latent = self.decode_layer[i](latent)
+        latent = one_input_forward(self.decode_layer[0], latent)
+        latent = one_input_forward(self.decode_layer[1], latent)
+        latent = self.decode_layer[2](latent)
 
         residue = latent
-        latent = self.decode_layer[3](latent)
+        latent = one_input_forward(self.decode_layer[3], latent)
         h, w = latent.shape[-2:]
         latent = latent.reshape(-1, h * w, 512)
-        latent, _ = self.decode_layer[4](latent, latent, latent)
+        latent = three_input_forward(self.decode_layer[4], latent, latent, latent)
         latent = latent.reshape(-1, 512, h, w) + residue
 
         for i in range(5, 25):
-            latent = self.decode_layer[i](latent)
+            if isinstance(self.decode_layer[i], Decoder_Unit):
+                latent = self.decode_layer[i](latent)
+            else:
+                latent = one_input_forward(self.decode_layer[i], latent)
 
-        latent = func.silu(latent)
-        return self.decode_layer[25](latent)
+        latent = one_input_forward(func.silu, latent)
+        return one_input_forward(self.decode_layer[25], latent)
 
     def text_processing(self, text_embedding):
         x = text_embedding
@@ -378,7 +424,7 @@ class Diffusion_Video_Model(nn.Module):
         for i in range(12):
             x = self.text_processing_layer[i](x, mask)
 
-        return self.text_processing_layer[12](x)
+        return one_input_forward(self.text_processing_layer[12], x)
     
     def latent_attention(self, memory_latent):
         x = memory_latent
@@ -386,34 +432,37 @@ class Diffusion_Video_Model(nn.Module):
         for i in range(12):
             x = self.memory_latent_processing_layer[i](x)
 
-        return self.memory_latent_processing_layer[12](x)
+        return one_input_forward(self.memory_latent_processing_layer[12], x)
 
     def latent_processing(self, latent, context, time_embedding, memory_latent):
         if (type(memory_latent) == list):
             memory_latent = torch.cat(memory_latent, 1)
         memory_latent = memory_latent + 0.5 * positional_encoder((memory_latent.shape[1], 64), 50000).to(self.device)
 
-        time_encoding = self.forward_diffusion_layer[0](time_embedding)
-        time_encoding = func.silu(time_encoding)
-        time_encoding = self.forward_diffusion_layer[1](time_encoding)
+        time_encoding = one_input_forward(self.forward_diffusion_layer[0], time_embedding)
+        time_encoding = one_input_forward(func.silu, time_encoding)
+        time_encoding = one_input_forward(self.forward_diffusion_layer[1], time_encoding)
 
         memory_latent = self.latent_attention(memory_latent)
+
+        print("Memory Latent Attention done!")
+        print("UNET downward...")
 
         S = []
         for i in range(2, 14):
             if type(self.forward_diffusion_layer[i]) == nn.Conv2d:
-                latent = self.forward_diffusion_layer[i](latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i], latent)
             elif type(self.forward_diffusion_layer[i]) == Diffusion_Unit:
                 latent, time_encoding = self.forward_diffusion_layer[i](latent, time_encoding, context, memory_latent)
             elif type(self.forward_diffusion_layer[i]) == Diffusion_First_Unit:
                 latent, time_encoding = self.forward_diffusion_layer[i](latent, time_encoding)
-            else:
-                latent = self.forward_diffusion_layer[i](latent, context, memory_latent)
             S.append(latent)
 
+        print("Inside bottleneck...")
         latent, time_encoding = self.forward_diffusion_layer[14](latent, time_encoding, context, memory_latent)
         latent, time_encoding = self.forward_diffusion_layer[15](latent, time_encoding)
 
+        print("UNET upward...")
         i = 16
         while i <= 42:
             latent = torch.cat((latent, S.pop()), 1)
@@ -425,21 +474,21 @@ class Diffusion_Video_Model(nn.Module):
                 i += 1
 
             if i == 19 or i == 27 or i == 35:
-                latent = self.forward_diffusion_layer[i](latent)
-                latent = self.forward_diffusion_layer[i + 1](latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i], latent)
+                latent = one_input_forward(self.forward_diffusion_layer[i + 1], latent)
                 i += 2
 
-        latent = self.forward_diffusion_layer[43](latent)
-        latent = func.silu(latent)
-        predicted_noise = self.forward_diffusion_layer[44](latent)
+        latent = one_input_forward(self.forward_diffusion_layer[43], latent)
+        latent = one_input_forward(func.silu, latent)
+        predicted_noise = one_input_forward(self.forward_diffusion_layer[44], latent)
         return predicted_noise
 
-    # latent = (B, 16, 64, 96) => (B, 1, 16 * 64 * 96) => (B, 64, 24) => (B, 24, 64)
-    # previous_latent = (B * 23, 16, 64, 96) => (B * 23, 1, 16 * 64 * 96) => (B * 23, 64, 24) => (B * 23, 24, 64)
-    def latent_tokenize(self, latent):
-        return self.latent_tokenize_layer(latent.reshape(latent.shape[0], 1, -1)).permute(0, 2, 1)
+    # previous_latent = (23, 16, 64, 96) => (23, 1, 16 * 64 * 96) => (23, 64, 24) => (23, 24, 64)
+    def latent_tokenize(self, previous_latent):
+        return self.latent_tokenize_layer(previous_latent.reshape(previous_latent.shape[0], 1, -1)).permute(0, 2, 1)
 
     def infer(self, prompts, latent_shape, frames):
+        function_low_gpu.is_training = False
         batch_size = len(prompts)
         h, w = latent_shape
 
@@ -456,9 +505,16 @@ class Diffusion_Video_Model(nn.Module):
             text_embedding = self.text_embedding_layer(token_sentences) + 0.5 * positional_encoder((1000, 768), 2000).to(self.device)
             context = self.text_processing(text_embedding)
 
-            for _ in range(frames):
-                latent = torch.randn(batch_size, 16, h, w, device = self.device)
+            print("Context has been calculated, its shape is " + str(context.shape))
 
+            for i in range(frames):
+                print("Infer frame " + str(i))
+
+                latent = torch.randn(batch_size, 16, h, w, device = self.device)
+                print("Latent has been randomly chosen!")
+                print("Started inference loop")
+
+                # change this shit to 0
                 for t in range(980, 0, -20):
                     time_embedding = time_encoder(320, t).reshape(1, 320).to(self.device)
                     predicted_noise = self.latent_processing(latent, context, time_embedding, memory_latent)
@@ -470,106 +526,176 @@ class Diffusion_Video_Model(nn.Module):
                         At_k ** 0.5 * (1 - At / At_k) / (1 - At) * predicted_noise + \
                         (At / At_k) ** 0.5 * (1 - At_k) / (1 - At) * latent + \
                         ((1 - At_k) / (1 - At) * (1 - At / At_k)) ** 0.5 * torch.randn(latent.shape, device = self.device)
-                
+                    print("Time step " + str(t) + " has been infered")
+
                 memory_latent.append(self.latent_tokenize(latent))
                 video.append(((self.decode(latent) + 1) * 255 / 2).to("cpu", dtype = torch.int32).clamp(0, 255))
                 debug_information.append(self.decode(latent))
+                print("Inference done!")
 
+        # video là list chứa frame phần tử, mỗi phần tử là 1 batch các frame trên cpu
         return (video, debug_information)
     
-    # batch video (B, 64 frame, 3, 512, 768), giá trị 0 255 đã bị map thành -1, 1
-    def one_step_train(self, batch_video, batch_prompt):
-        batch_size, frames, _, height, width = batch_video.shape
-        h = height // 8
-        w = width // 8
+    def one_step_train_auto_encoder(self, batch_frames):
+        loss = self.autoencoder_criterion(self.decode(self.encode_layer(batch_frames)), batch_frames)
+        print("Autoencoder Loss = " + str(loss.item()))
 
-        # shape (B * 64, 16, 64, 96)
-        memory_latent = self.encode_layer(batch_video.reshape(-1, 3, height, width))
-        # shape (B * 64, 3, 512, 768)
-        original_frame = self.decode(memory_latent)
-        loss_1 = self.criterion(original_frame, batch_video.reshape(-1, 3, height, width))
+        loss.backward()
+        self.autoencoder_optimizer.step()
+        self.autoencoder_optimizer.zero_grad()
+        print("Autoencoder Stepped")
 
+        return loss.item()
+
+
+    def one_step_train_stable_diffusion(self, memory_latent, prompt):
+        _, frames, _, height, width = memory_latent.shape
+        
         random_frame = random.randint(0, frames - 1)
+        # (1, 16, 64, 96)
+        chosen_latent = memory_latent[:, random_frame]
+        print("Chosing latent done, latent shape is " + str(chosen_latent.shape))
+
         random_time = random.randint(0, 999)
         time_embedding = time_encoder(320, random_time).reshape(1, 320).to(self.device)
 
-
-        # shape (B, 16, 64, 96)
-        chosen_latent = memory_latent.reshape(batch_size, frames, 16, h, w)[:, random_frame]
-
-        # shape (B, 23, 16, 64, 96)
-        previous_latent = torch.cat((
-            torch.zeros(batch_size, 1, 16, h, w, device = self.device), 
-            memory_latent.reshape(batch_size, frames, 16, h, w)[:, :random_frame]
-        ), 1)
-
-        # shape (B, 16, 64, 96)
+        # shape (1, 16, 64, 96)
         added_noise = torch.randn(chosen_latent.shape, device = self.device)
         noise_latent = \
             self.A[random_time] ** 0.5 * chosen_latent + \
             (1 - self.A[random_time]) ** 0.5 * added_noise
         
+        print("Add noise done!")
         BPE_tokenizer = transformers.CLIPTokenizer("vocabulary.json", "merge.txt", clean_up_tokenization_spaces = True)
         token_sentences = torch.tensor(BPE_tokenizer.batch_encode_plus(
-            batch_prompt, padding = "max_length", max_length = 1000
+            prompt, padding = "max_length", max_length = 1000
         ).input_ids, device = self.device)
 
-        text_embedding = self.text_embedding_layer(token_sentences) + 0.5 * positional_encoder((1000, 768), 2000).to(self.device)
-        
-        # shape (B, 1000, 768)
-        context = self.text_processing(text_embedding)
+        # shape (1, 1000, 768)
+        context = self.text_processing(
+            one_input_forward(self.text_embedding_layer, token_sentences) + 
+            0.5 * positional_encoder((1000, 768), 2000).to(self.device)
+        )
 
+        print("Text processing done, context tensor shape is " + str(context.shape))
 
-        # (B * 23, 24, 64)
-        previous_latent = self.latent_tokenize(previous_latent.reshape(-1, 16, h, w)).reshape(batch_size, -1, 64)
+        # (1, 23, 16, 64, 96)
+        previous_latent = torch.cat((
+            torch.zeros(1, 1, 16, height, width, device = self.device), 
+            memory_latent[:, :random_frame]
+        ), 1)
+        # (23, 24, 64)
+        previous_latent = self.latent_tokenize(
+            previous_latent.reshape(-1, 16, height, width)
+        ).reshape(1, -1, 64)
+        torch.cuda.empty_cache()
+        print("Previous latent has been calculated, its shape is " + str(previous_latent.shape))
         
         predicted_noise = self.latent_processing(noise_latent, context, time_embedding, previous_latent)
-        loss_2 = self.criterion(predicted_noise, added_noise)
+        loss = self.stable_diffusion_criterion(predicted_noise, added_noise)
+        print("Stable Diffusion Loss = " + str(loss.item()))
 
-        loss = loss_1 + loss_2
         loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        print("Stable Diffusion Backwarded Successfully!")
+
+        self.stable_diffusion_optimizer.step()
+        print("Stable Diffusion Stepped")
+
+        self.stable_diffusion_optimizer.zero_grad()
+        print("Stable Diffusion Gradient Reset")
 
         return loss.item()
 
-    def train(self, time_step):
-        _, _, frames = configuration_at_time_step(time_step)
+    def train_auto_encoder(self, time_step):
+        function_low_gpu.is_training = True
+
         resolution = time_step % 6
         if resolution == 0:
-            resolution = [384, 512]
+            resolution = [512, 384]
         elif resolution == 1:
-            resolution = [512, 768]
+            resolution = [768, 512]
         elif resolution == 2:
-            resolution = [640, 1024]
+            resolution = [1024, 640]
         elif resolution == 3:
-            resolution = [896, 1408]
+            resolution = [1408, 896]
         elif resolution == 4:
-            resolution = [1024, 1664]
+            resolution = [1664, 1024]
         elif resolution == 5:
-            resolution = [1280, 1920]
+            resolution = [1920, 1280]
 
         batch_video = []
-        batch_prompt = []
         losses = []
 
         for f in os.listdir("videos"):
-            if f.startswith("video"):
-                curent_video = []
-                video_generator = cv.VideoCapture(f)
-                for _ in range(frames):
-                    curent_video.append(torch.from_numpy(cv.resize(video_generator.read(), resolution)).permute(2, 0, 1))
-                video_generator.release()
-                # (64, 3, 512, 768)
-                batch_video.append(torch.stack(curent_video))
-                with open("videos/description" + re.search(r"video(\d+)\.mp4", f).group(1) + ".txt") as df:
-                    batch_prompt.append(df.read())
-        # (B, 64, 3, 512, 768)
-        batch_video = torch.stack(batch_video).to(self.device)
+            curent_video = []
+            video_generator = cv.VideoCapture(os.path.join("videos", f))
+            for _ in range(64):
+                curent_video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
+            video_generator.release()
+            batch_video.append(torch.stack(curent_video))
+  
+        # (128, 3, 512, 768)
+        batch_video = torch.cat(batch_video).to(self.device) / 255. * 2 - 1
 
         for _ in range(100):
-            losses.append(self.one_step_train(batch_video, batch_prompt))
+            random_index = random.randint(0, 31)
+            batch_frames = batch_video[random_index * 4:random_index * 4 + 4]
+            loss = self.one_step_train_auto_encoder(batch_frames)
+            losses.append(loss)
             torch.cuda.empty_cache()
+            print_memory_information()
+
+        return sum(losses) / len(losses)
+    
+    def train_stable_diffusion(self, time_step):
+        function_low_gpu.is_training = True
+
+        _, frames = configuration_at_time_step(time_step)
+        resolution = time_step % 6
+        if resolution == 0:
+            resolution = [512, 384]
+        elif resolution == 1:
+            resolution = [768, 512]
+        elif resolution == 2:
+            resolution = [1024, 640]
+        elif resolution == 3:
+            resolution = [1408, 896]
+        elif resolution == 4:
+            resolution = [1664, 1024]
+        elif resolution == 5:
+            resolution = [1920, 1280]
+
+        losses = []
+        video = []
+        prompt = []
+        video_generator = cv.VideoCapture("videos/video0.mp4")
+        for _ in range(frames):
+            video.append(torch.from_numpy(cv.resize(video_generator.read()[1], resolution)).permute(2, 0, 1))
+        video_generator.release()
+        # (64, 3, 512, 768)
+        video = (torch.stack(video) / 255. * 2 - 1).to(self.device)
+        print("Video has been readed!")
+        with open("videos/description0.txt") as df:
+            prompt.append(df.read())
+        print("Prompt has been readed!")
+
+        memory_latent = []
+        with torch.no_grad():
+            for i in range(frames // 4):
+                memory_latent.append(self.encode_layer(video[i:i + 4]))
+                print("Encode chunk " + str(i))
+
+        # (1, 64, 16, 64, 96)
+        memory_latent = torch.cat(memory_latent).unsqueeze(0)
+
+        torch.cuda.empty_cache()
+        print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
+
+        for _ in range(100):
+            loss = self.one_step_train_stable_diffusion(memory_latent, prompt)
+            losses.append(loss)
+            torch.cuda.empty_cache()
+            print_memory_information()
 
         return sum(losses) / len(losses)
     

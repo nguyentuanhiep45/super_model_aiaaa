@@ -1,6 +1,6 @@
 import torch
 from video import exist_video, delete_video, download_video
-from model_low_gpu import exist_model, Diffusion_Video_Model, show_image
+from model import exist_model, Diffusion_Video_Model, show_image, make_video
 import os
 
 torch.set_printoptions(
@@ -47,4 +47,5 @@ batch_video, _ = model.infer([
     "I eat cock"
 ], (64, 96), 10)
 
+make_video(batch_video)
 show_image(batch_video[0][0])

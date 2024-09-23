@@ -17,12 +17,12 @@ def generate_tensor_file_name():
 #module.net có thể là module hoặc func
 class One_Input_Call(torch.autograd.Function):
     def forward(context, module, input_tensor):
-        context.module = module.net
-        context.name = os.path.join("computational_graph", generate_tensor_file_name())
-        print("forward : " + context.name[-10:])
-        print(module.net)
         if is_training:
+            context.module = module.net
+            context.name = os.path.join("computational_graph", generate_tensor_file_name())
+            print("forward : " + context.name[-10:])
             torch.save(input_tensor, context.name)
+        print(module.net)
         torch.cuda.empty_cache()
         return module.net(input_tensor)
         
