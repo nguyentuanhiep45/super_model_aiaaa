@@ -20,25 +20,25 @@ if torch.cuda.is_available():
     model.cuda()
     print("Model has been moved to CUDA!")
 
-# print("Started to train autoencoder...")
-# for time_step in range(1000000):
-#     if exist_video():
-#         delete_video()
-#     download_video(time_step, "Autoencoder")
+print("Started to train autoencoder...")
+for time_step in range(1000000):
+    if exist_video():
+        delete_video()
+    download_video(time_step, "Autoencoder")
 
-#     loss = model.train_auto_encoder(time_step)
-#     print("Time step " + str(time_step) + ": Autoencoder Loss = " + str(loss))
-#     model.save()
+    loss = model.train_auto_encoder(time_step, 2)
+    print("Time step " + str(time_step) + ": Autoencoder Loss = " + str(loss))
+    model.save()
 
-# print("Started to train stable diffusion...")
-# for time_step in range(1000000):
-#     if  exist_video():
-#         delete_video()
-#     download_video(time_step, "Stable Diffusion")
+print("Started to train stable diffusion...")
+for time_step in range(1000000):
+    if  exist_video():
+        delete_video()
+    download_video(time_step, "Stable Diffusion")
 
-#     loss = model.train_stable_diffusion(time_step)
-#     print("Time step " + str(time_step) + ": Stable Diffusion Loss = " + str(loss))
-#     model.save()
+    loss = model.train_stable_diffusion(time_step, 100)
+    print("Time step " + str(time_step) + ": Stable Diffusion Loss = " + str(loss))
+    model.save()
 
 print("Started inference...")
 

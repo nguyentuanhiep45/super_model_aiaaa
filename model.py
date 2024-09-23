@@ -11,6 +11,7 @@ from video import configuration_at_time_step
 import function_low_gpu
 from function_low_gpu import one_input_forward, three_input_forward, four_input_forward, Modified_Multiply
 import psutil as ps
+import numpy as np
 
 def exist_model():
     return os.path.isfile("model.ckpt")
@@ -34,10 +35,14 @@ def show_image(integer_tensor_image):
     plt.show()
 
 def make_video(batch_video):
-    for i in range(batch_video[0].shape[0]):
-        video_generator = cv.VideoWriter("inference_video" + str(i) + ".mp4", 1983148141, 10, (512, 768))
+    if not os.path.exists("infered_videos"):
+        os.mkdir("infered_videos")
+    batch_size, _, height, width = batch_video[0].shape
+    for i in range(batch_size):
+        file_path = os.path.join("infered_videos", "inference_video" + str(i) + ".mp4")
+        video_generator = cv.VideoWriter(file_path, 1983148141, 30, (width, height))
         for j in range(len(batch_video)):
-            video_generator.write(batch_video[j][i].permute(1, 2, 0).numpy())
+            video_generator.write(batch_video[j][i].permute(1, 2, 0).numpy().astype(np.uint8))
         video_generator.release()
 
 def print_memory_information():
@@ -606,7 +611,7 @@ class Diffusion_Video_Model(nn.Module):
 
         return loss.item()
 
-    def train_auto_encoder(self, time_step):
+    def train_auto_encoder(self, time_step, num_epochs):
         function_low_gpu.is_training = True
 
         resolution = time_step % 6
@@ -637,7 +642,7 @@ class Diffusion_Video_Model(nn.Module):
         # (128, 3, 512, 768)
         batch_video = torch.cat(batch_video).to(self.device) / 255. * 2 - 1
 
-        for _ in range(100):
+        for _ in range(num_epochs):
             random_index = random.randint(0, 31)
             batch_frames = batch_video[random_index * 4:random_index * 4 + 4]
             loss = self.one_step_train_auto_encoder(batch_frames)
@@ -647,7 +652,7 @@ class Diffusion_Video_Model(nn.Module):
 
         return sum(losses) / len(losses)
     
-    def train_stable_diffusion(self, time_step):
+    def train_stable_diffusion(self, time_step, num_epochs):
         function_low_gpu.is_training = True
 
         _, frames = configuration_at_time_step(time_step)
@@ -691,7 +696,7 @@ class Diffusion_Video_Model(nn.Module):
         torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
 
-        for _ in range(100):
+        for _ in range(num_epochs):
             loss = self.one_step_train_stable_diffusion(memory_latent, prompt)
             losses.append(loss)
             torch.cuda.empty_cache()
@@ -702,14 +707,16 @@ class Diffusion_Video_Model(nn.Module):
     def save(self):
         torch.save({
             "params" : self.state_dict(),
-            "optimizer": self.optimizer.state_dict()
-        }, "model.ckpt")
+            "autoencoder_optimizer": self.autoencoder_optimizer.state_dict(),
+            "stable_diffusion_optimizer": self.stable_diffusion_optimizer.state_dict()
+        }, "drive/MyDrive/Video AI/model.ckpt")
 
         print("Model has been saved successfully.")
 
     def load(self):
-        model = torch.load("model.ckpt")
+        model = torch.load("drive/MyDrive/Video AI/model.ckpt")
         self.load_state_dict(model["params"])
-        self.optimizer.load_state_dict(model["optimizer"])
+        self.autoencoder_optimizer.load_state_dict(model["autoencoder_optimizer"])
+        self.stable_diffusion_optimizer.load_state_dict(model["stable_diffusion_optimizer"])
 
         print("Model has been loaded successfully.")
