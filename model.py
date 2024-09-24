@@ -642,13 +642,16 @@ class Diffusion_Video_Model(nn.Module):
         # (128, 3, 512, 768)
         batch_video = torch.cat(batch_video).to(self.device) / 255. * 2 - 1
 
-        for _ in range(num_epochs):
+        for i in range(num_epochs):
             random_index = random.randint(0, 31)
             batch_frames = batch_video[random_index * 4:random_index * 4 + 4]
             loss = self.one_step_train_auto_encoder(batch_frames)
             losses.append(loss)
             torch.cuda.empty_cache()
             print_memory_information()
+
+            if i > 0 and i % 10 == 0:
+                self.save()
 
         return sum(losses) / len(losses)
     
@@ -696,11 +699,14 @@ class Diffusion_Video_Model(nn.Module):
         torch.cuda.empty_cache()
         print("Encoding done, memory latent shape is : " + str(memory_latent.shape))
 
-        for _ in range(num_epochs):
+        for i in range(num_epochs):
             loss = self.one_step_train_stable_diffusion(memory_latent, prompt)
             losses.append(loss)
             torch.cuda.empty_cache()
             print_memory_information()
+
+            if i > 0 and i % 10 == 0:
+                self.save()
 
         return sum(losses) / len(losses)
     
