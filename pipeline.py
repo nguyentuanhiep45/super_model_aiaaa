@@ -26,7 +26,7 @@ for time_step in range(1000000):
         delete_video()
     download_video(time_step, "Autoencoder")
 
-    loss = model.train_auto_encoder(time_step, 2)
+    loss = model.train_auto_encoder(time_step, 10)
     print("Time step " + str(time_step) + ": Autoencoder Loss = " + str(loss))
     model.save()
 
@@ -36,7 +36,7 @@ for time_step in range(1000000):
         delete_video()
     download_video(time_step, "Stable Diffusion")
 
-    loss = model.train_stable_diffusion(time_step, 100)
+    loss = model.train_stable_diffusion(time_step, 10)
     print("Time step " + str(time_step) + ": Stable Diffusion Loss = " + str(loss))
     model.save()
 
