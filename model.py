@@ -649,9 +649,7 @@ class Diffusion_Video_Model(nn.Module):
             losses.append(loss)
             torch.cuda.empty_cache()
             print_memory_information()
-
-            if i > 0 and i % 10 == 0:
-                self.save()
+            self.save()
 
         return sum(losses) / len(losses)
     
@@ -704,9 +702,7 @@ class Diffusion_Video_Model(nn.Module):
             losses.append(loss)
             torch.cuda.empty_cache()
             print_memory_information()
-
-            if i > 0 and i % 10 == 0:
-                self.save()
+            self.save()
 
         return sum(losses) / len(losses)
     
